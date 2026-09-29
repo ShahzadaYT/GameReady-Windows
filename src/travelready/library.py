@@ -37,7 +37,7 @@ import uuid
 from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timezone
 from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
-from typing import Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 LIBRARY_VERSION = "3"
 LIBRARY_FILE = "games.json"
@@ -405,3 +405,76 @@ def export_games(entries: Sequence[GameEntry], path: Path) -> str:
         return f"Exported {len(entries)} games to CSV."
     save_library(entries, path)
     return f"Exported {len(entries)} games to JSON."
+
+
+#: Fields a rescan may refresh on an existing entry. Everything else — most
+#: importantly the user's test history and any manual edits — is preserved, so
+#: re-scanning never costs the user work.
+_REFRESHABLE = ("exe_path", "working_dir", "install_dir", "expected_process",
+                "launch_method", "launch_target", "app_user_model_id",
+                "package_family_name", "verification", "notes")
+
+
+def merge_library_updates(existing: Sequence[GameEntry],
+                          discovered: Sequence[GameEntry]) -> Tuple[List[GameEntry], int, int]:
+    """Fold a fresh scan into the stored library.
+
+    Returns ``(entries, added, updated)``. An existing entry keeps its id,
+    ``last_result``, ``last_ready``, timeouts and any field the user edited by
+    hand; a discovered entry may only *fill in* fields that are empty, or
+    correct a launch route it now knows better. Entries the scan did not find
+    are kept — a game is not deleted because a launcher was offline.
+    """
+    by_key: Dict[Tuple[str, str], GameEntry] = {}
+    for entry in existing:
+        by_key[(entry.launcher, entry.identity or entry.name.lower())] = entry
+
+    added = updated = 0
+    for found in discovered:
+        key = (found.launcher, found.identity or found.name.lower())
+        current = by_key.get(key)
+        if current is None:
+            by_key[key] = found
+            added += 1
+            continue
+        changed = False
+        for fieldname in _REFRESHABLE:
+            new_value = getattr(found, fieldname, "")
+            if not new_value:
+                continue
+            old_value = getattr(current, fieldname, "")
+            if old_value:
+                continue                      # never overwrite what is already known
+            setattr(current, fieldname, new_value)
+            changed = True
+        for alt in found.process_names():
+            known = {n.lower() for n in current.process_names()}
+            if alt.lower() not in known:
+                current.alt_processes.append(alt)
+                changed = True
+        if current.mode == "manual" and current.process_names():
+            # a previously unverifiable entry can now be verified
+            current.mode = "standard"
+            current.verification = VERIFY_AUTO
+            changed = True
+        if changed:
+            updated += 1
+    return list(by_key.values()), added, updated
+
+
+def infrastructure_entries(entries: Sequence[GameEntry]) -> List[GameEntry]:
+    """Entries that look like launcher plumbing rather than games.
+
+    The supplied library contains ``ea | Electronic Arts | … EADesktop.exe`` and
+    ``ea | EA Games | … NeedForSpeedUnboundTrial.exe``. Surfaced for the user to
+    remove rather than deleted silently — TravelReady does not throw away
+    library rows on its own.
+    """
+    from .discovery import is_blacklisted_name, is_launcher_infrastructure
+
+    out = []
+    for entry in entries:
+        if is_blacklisted_name(entry.name) or (
+                entry.exe_path and is_launcher_infrastructure(entry.exe_path)):
+            out.append(entry)
+    return out

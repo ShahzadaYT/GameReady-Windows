@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "travelready"
+version = "0.2.0"
+description = "Prepare a Windows gaming handheld for offline travel"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+# No runtime dependencies on purpose: the shipped executable must work on a
+# clean Windows install, and every Windows integration uses tools that are
+# already present (tasklist, PowerShell, winreg, tkinter).
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4"]
+
+[project.scripts]
+travelready = "travelready.cli:main"
+
+[project.gui-scripts]
+travelready-gui = "travelready.main:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"travelready.optimiser" = ["data/profiles/*.json", "data/profiles/*.md"]
