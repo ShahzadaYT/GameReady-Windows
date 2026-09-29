@@ -98,3 +98,38 @@ def test_xbox_manual_note_is_about_the_entry_not_the_platform():
     note = R.XBOX_MANUAL_NOTE.lower()
     assert "cannot be automatically process-verified" not in note
     assert "this store entry" in note or "this" in note
+
+
+# -- settings state must not turn a network problem into a permanent answer ---
+
+def test_settings_state_without_a_resolver_is_not_checked():
+    assert R.settings_state_of(_entry()) == R.SETTINGS_UNKNOWN
+
+
+def test_an_unsynced_cache_reports_not_checked_not_no_profile(tmp_path):
+    from travelready.optimiser.rogallylife.bridge import SourceResolver
+    from travelready.optimiser.rogallylife.cache import ProfileCache
+
+    resolver = SourceResolver(ProfileCache(tmp_path))
+    assert R.settings_state_of(_entry(), resolver) == R.SETTINGS_UNKNOWN
+    assert R.settings_state_of(_entry(), resolver) != R.SETTINGS_NONE
+
+
+def test_a_synced_cache_with_no_match_reports_no_profile(tmp_path):
+    from travelready.optimiser.rogallylife.bridge import SourceResolver
+    from travelready.optimiser.rogallylife.cache import ProfileCache
+    from travelready.optimiser.rogallylife.model import (
+        SourceGame, SourceProfile, SourceSetting,
+    )
+
+    cache = ProfileCache(tmp_path)
+    cache.put(SourceGame(
+        title="Some Other Game",
+        source_url="https://rogallylife.com/2026/01/01/other-rog-ally/",
+        device_family="rog_ally_family", slug="other-rog-ally",
+        profiles=[SourceProfile(name="900P 18W", settings=[
+            SourceSetting("Texture Quality", "Low", "texture_quality")])]))
+    cache.save_index()
+    resolver = SourceResolver(cache)
+    assert R.settings_state_of(_entry(name="Nothing Like That"),
+                               resolver) == R.SETTINGS_NONE

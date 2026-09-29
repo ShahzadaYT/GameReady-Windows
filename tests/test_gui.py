@@ -33,29 +33,86 @@ def app(tmp_path, monkeypatch):
 
 def test_window_builds_with_the_real_library(app):
     assert len(app.entries) == 162
-    assert len(app.tree.get_children()) == 162
+    # rows are games, not raw entries: non-games are excluded and duplicate
+    # installs collapse into one identity
+    assert app.identities
+    assert len(app.tree.get_children()) == len(app.identities)
+    assert len(app.identities) < 162
 
 
 def test_launcher_tabs_show_live_counts(app):
+    """Counts are games, not raw entries: non-games and duplicates are gone."""
     labels = [app.notebook.tab(i, "text") for i in range(len(app.notebook.tabs()))]
-    assert "All (162)" in labels
-    assert "Xbox (49)" in labels
-    assert "EA (13)" in labels
-    assert "Steam (44)" in labels
+    assert f"All ({len(app.identities)})" in labels
+    per_tab = {label.split(" (")[0]: int(label.split("(")[1].rstrip(")"))
+               for label in labels if "(" in label}
+    assert per_tab["All"] == len(app.identities)
+    assert sum(v for k, v in per_tab.items() if k != "All") == per_tab["All"]
+    assert per_tab["Steam"] > 0 and per_tab["Xbox"] > 0
 
 
 def test_switching_tab_filters_rows_without_losing_games(app):
+    total = len(app.tree.get_children())
     app.notebook.select(1)                       # Xbox
     app.root.update()
     assert app.current_tab == "Xbox"
-    assert len(app.tree.get_children()) == 49
+    assert 0 < len(app.tree.get_children()) < total
     assert len(app.entries) == 162, "filtering must not drop library entries"
 
 
 def test_dashboard_summarises_readiness(app):
     text = app.dashboard_label.cget("text")
-    assert "READY 43" in text
-    assert "Needs attention" in text
+    for field in ("Games:", "Ready:", "Warnings:", "Action required:"):
+        assert field in text
+    assert app.verdict_label.cget("text")
+
+
+def test_prepare_is_the_primary_action(app):
+    assert "Prepare for Travel" in app.prepare_button.cget("text")
+    assert str(app.prepare_button.cget("style")) == "Accent.TButton"
+
+
+def test_readiness_column_shows_a_verdict_not_a_raw_status(app):
+    rows = app.tree.get_children()
+    verdicts = {app.tree.item(r, "values")[1] for r in rows}
+    allowed = {v.replace("_", " ").title() for v in
+               __import__("travelready.preparation", fromlist=["x"]).READINESS_ORDER}
+    assert verdicts <= allowed, verdicts
+
+
+def test_selecting_a_game_shows_every_check_and_what_to_do(app):
+    rows = app.tree.get_children()
+    app.tree.selection_set(rows[0])
+    app.root.update()
+    detail = app.detail_text.get("1.0", "end")
+    assert "Travel readiness:" in detail
+    assert "Installation" in detail
+    assert "Launch target" in detail and "Verify by" in detail
+
+
+def test_launch_and_verification_are_shown_separately(app):
+    rows = app.tree.get_children()
+    app.tree.selection_set(rows[0])
+    app.root.update()
+    detail = app.detail_text.get("1.0", "end")
+    assert "Launch target" in detail
+    assert "Verify by" in detail, "verification target must be its own line"
+
+
+def test_readiness_is_cached_rather_than_recomputed_per_repaint(app):
+    app._reports.clear()
+    app._refresh()
+    first = dict(app._reports)
+    assert first, "a refresh should populate the cache"
+    key = next(iter(first))
+    marker = first[key]
+    app._refresh()
+    assert app._reports[key] is marker, \
+        "an unchanged library must not be re-assessed"
+
+
+def test_resume_is_disabled_without_a_saved_run(app):
+    assert str(app.resume_button.cget("state")) == "disabled"
 
 
 def test_selecting_a_game_shows_whether_it_can_be_verified(app):
@@ -65,9 +122,8 @@ def test_selecting_a_game_shows_whether_it_can_be_verified(app):
     app.tree.selection_set(rows[0])
     app.root.update()
     detail = app.detail_text.get("1.0", "end")
-    assert "Launcher" in detail and "Expected process" in detail
-    assert ("cannot be verified automatically" in detail
-            or "Can be verified automatically" in detail)
+    assert "Launch can be verified" in detail
+    assert "Verify by" in detail
 
 
 def test_settings_panel_reports_a_missing_profile_without_inventing_one(app):
@@ -94,7 +150,7 @@ def test_settings_column_is_present_and_does_not_gate_launch(app):
     values = app.tree.item(rows[0], "values")
     # readiness and settings are separate columns; neither derives from the other
     assert len(values) == len(app.tree["columns"])
-    assert values[3] in ("Ready", "Review", "Manual", "No profile", "Not checked")
+    assert values[3] in ("profile", "none", "not checked", "-")
 
 
 def test_source_label_reports_an_empty_cache_honestly(app):

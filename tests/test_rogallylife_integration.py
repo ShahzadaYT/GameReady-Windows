@@ -271,12 +271,37 @@ def test_no_profile_says_so_and_substitutes_nothing(cached):
 # -- coverage ----------------------------------------------------------------
 
 def test_coverage_counts_the_real_library(cached):
+    """Coverage is per *game*, so duplicate installs collapse into one row."""
     entries, _ = load_library(FIXTURES / "games_2026-09-26.json")
     report = build_report(entries, SourceResolver(cached))
-    assert report.total == 162
-    assert len(report.rows) + len(report.infrastructure) == 162
+    assert report.rows, "every game should be represented"
     assert report.by_launcher()["xbox"] > 0
     assert "ROG Ally Life coverage" in report.describe()
+    # 162 raw entries reduce to games + non-games, with duplicates merged
+    assert len(report.rows) + len(report.infrastructure) <= 162
+
+
+def test_every_game_lands_in_exactly_one_coverage_category(cached):
+    entries, _ = load_library(FIXTURES / "games_2026-09-26.json")
+    report = build_report(entries, SourceResolver(cached))
+    categorised = report.categorised()          # asserts the invariant itself
+    assert sum(len(rows) for rows in categorised.values()) == len(report.rows)
+    seen = [row for rows in categorised.values() for row in rows]
+    assert len({id(r) for r in seen}) == len(report.rows), "a game was double-counted"
+
+
+def test_an_unsynced_cache_is_not_reported_as_no_recommendation(tmp_path):
+    """'Not checked' and 'no recommendation' are different facts."""
+    from travelready.optimiser.rogallylife.coverage import (
+        STATUS_NO_PROFILE, STATUS_SOURCE_UNAVAILABLE,
+    )
+
+    entries, _ = load_library(FIXTURES / "games_2026-09-26.json")
+    empty = ProfileCache(tmp_path / "empty")
+    report = build_report(entries, SourceResolver(empty))
+    assert report.with_status(STATUS_NO_PROFILE) == []
+    assert report.with_status(STATUS_SOURCE_UNAVAILABLE)
+    assert "never been synced" in report.note
 
 
 def test_title_only_report_is_labelled_as_a_lower_bound():
@@ -288,16 +313,19 @@ def test_title_only_report_is_labelled_as_a_lower_bound():
 
 
 def test_title_only_report_finds_the_known_real_matches():
+    """Both installs of Clair Obscur are now one game, matched once."""
     entries, _ = load_library(FIXTURES / "games_2026-09-26.json")
     report = title_only_report(entries)
-    matched = {r.entry.name for r in report.review}
+    matched = {r.game for r in report.review}
     assert "Clair Obscur: Expedition 33" in matched
-    assert "Clair Obscur- Expedition 33" in matched
     assert "Forza Horizon 6" in matched
+    identity = next(r.identity for r in report.review
+                    if r.game == "Clair Obscur: Expedition 33")
+    assert "Clair Obscur- Expedition 33" in identity.aliases
 
 
 def test_coverage_never_reports_junk_as_a_game():
     entries, _ = load_library(FIXTURES / "games_2026-09-26.json")
     report = title_only_report(entries)
-    matched = {r.entry.name for r in report.rows if r.confidence >= 0.90}
+    matched = {r.game for r in report.rows if r.confidence >= 0.90}
     assert not ({"Calculator", "Notepad", "Windows Security"} & matched)

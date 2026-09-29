@@ -18,6 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from ...identity import GameIdentity, build_identities
 from ...library import GameEntry
 from ...readiness import tab_for_launcher
 from ..model import CATEGORY_GAME
@@ -27,12 +28,34 @@ from .known_urls import seed_titles
 from .matcher import AUTO_THRESHOLD, MIN_THRESHOLD, match
 
 
+#: Every game lands in exactly one of these. ``source_unavailable`` exists
+#: because "we could not reach the source" is a different fact from "the source
+#: has no recommendation", and reporting the first as the second is how a
+#: network problem becomes a permanent-looking answer.
+STATUS_MATCHED = "matched"
+STATUS_REVIEW = "review"
+STATUS_NO_PROFILE = "no_profile"
+STATUS_NO_DATA = "no_profiles_published"
+STATUS_SOURCE_UNAVAILABLE = "source_unavailable"
+
+ALL_STATUSES = (STATUS_MATCHED, STATUS_REVIEW, STATUS_NO_DATA,
+                STATUS_SOURCE_UNAVAILABLE, STATUS_NO_PROFILE)
+
+STATUS_LABELS = {
+    STATUS_MATCHED: "Recommendation found",
+    STATUS_REVIEW: "Possible match, needs review",
+    STATUS_NO_DATA: "Page found, no settings readable",
+    STATUS_SOURCE_UNAVAILABLE: "Not checked (source not synced)",
+    STATUS_NO_PROFILE: "No recommendation published",
+}
+
+
 @dataclass
 class GameCoverage:
-    """One library entry's relationship to the source."""
+    """One game's relationship to the source."""
 
     entry: GameEntry
-    status: str                  # matched | review | no_profile | no_profiles_published
+    status: str
     matched_title: str = ""
     confidence: float = 0.0
     reason: str = ""
@@ -43,9 +66,16 @@ class GameCoverage:
     manual_settings: List[str] = field(default_factory=list)
     ambiguous_with: Tuple[str, ...] = ()
 
+    identity: Optional[GameIdentity] = None
+
     @property
     def is_match(self) -> bool:
-        return self.status == "matched"
+        return self.status == STATUS_MATCHED
+
+    @property
+    def game(self) -> str:
+        return (self.identity.canonical_title if self.identity
+                else getattr(self.entry, "name", ""))
 
 
 @dataclass
@@ -74,15 +104,27 @@ class CoverageReport:
 
     @property
     def matched(self) -> List[GameCoverage]:
-        return self.with_status("matched")
+        return self.with_status(STATUS_MATCHED)
 
     @property
     def review(self) -> List[GameCoverage]:
-        return self.with_status("review")
+        return self.with_status(STATUS_REVIEW)
 
     @property
     def unmatched(self) -> List[GameCoverage]:
-        return self.with_status("no_profile")
+        return self.with_status(STATUS_NO_PROFILE)
+
+    @property
+    def not_checked(self) -> List[GameCoverage]:
+        return self.with_status(STATUS_SOURCE_UNAVAILABLE)
+
+    def categorised(self) -> Dict[str, List[GameCoverage]]:
+        """Every game, in exactly one category."""
+        out = {status: self.with_status(status) for status in ALL_STATUSES}
+        assigned = sum(len(rows) for rows in out.values())
+        assert assigned == len(self.rows), (
+            f"{len(self.rows) - assigned} game(s) fell outside every category")
+        return out
 
     @property
     def ambiguous(self) -> List[GameCoverage]:
@@ -109,16 +151,18 @@ class CoverageReport:
         ]
         for launcher, count in launchers.items():
             lines.append(f"  {tab_for_launcher(launcher):<12} {count}")
+        categorised = self.categorised()
+        lines += ["", f"Source games cached        {self.source_games}", "",
+                  "Every game appears in exactly one row below."]
+        for status in ALL_STATUSES:
+            lines.append(f"  {STATUS_LABELS[status]:<36}{len(categorised[status]):>4}")
+        lines.append(f"  {'':<36}{'----':>4}")
+        lines.append(f"  {'Total games':<36}{len(self.rows):>4}")
+        if self.ambiguous:
+            lines.append(f"\n  Of those, ambiguous matches: {len(self.ambiguous)}")
         lines += [
             "",
-            f"Source games cached        {self.source_games}",
-            "",
-            f"ROG Ally Life matches      {len(self.matched)}",
-            f"ROG Ally Life unmatched    {len(self.unmatched)}",
-            f"Ambiguous / needs review   {len(self.review) + len(self.ambiguous)}",
-            f"Page found, no settings    {len(self.with_status('no_profiles_published'))}",
-            "",
-            f"Settings profiles available  {sum(r.profiles_available for r in self.matched)}",
+            f"Settings profiles available       {sum(r.profiles_available for r in self.matched)}",
             f"Games automatically configurable  {len(self.automatically_configurable)}",
             f"Games needing manual changes      {len(self.manual_only)}",
         ]
@@ -127,8 +171,8 @@ class CoverageReport:
         if detail:
             if self.matched:
                 lines += ["", "MATCHED", "-" * 58]
-                for row in sorted(self.matched, key=lambda r: r.entry.name.lower()):
-                    lines.append(f"  {row.entry.name}")
+                for row in sorted(self.matched, key=lambda r: r.game.lower()):
+                    lines.append(f"  {row.game}")
                     lines.append(f"      -> {row.matched_title}  "
                                  f"({row.confidence:.2f}, {row.reason})")
                     if row.profile_label:
@@ -140,15 +184,15 @@ class CoverageReport:
             if self.review or self.ambiguous:
                 lines += ["", "NEEDS REVIEW", "-" * 58]
                 for row in {id(r): r for r in self.review + self.ambiguous}.values():
-                    lines.append(f"  {row.entry.name}")
+                    lines.append(f"  {row.game}")
                     lines.append(f"      -> {row.matched_title} "
                                  f"({row.confidence:.2f}, {row.reason})")
                     if row.ambiguous_with:
                         lines.append(f"      also matched: {', '.join(row.ambiguous_with)}")
             if self.unmatched:
                 lines += ["", "NO RECOMMENDATION", "-" * 58]
-                for row in sorted(self.unmatched, key=lambda r: r.entry.name.lower()):
-                    lines.append(f"  {row.entry.name} [{row.entry.launcher}]")
+                for row in sorted(self.unmatched, key=lambda r: r.game.lower()):
+                    lines.append(f"  {row.game} [{row.entry.launcher}]")
         return "\n".join(lines)
 
 
@@ -169,21 +213,42 @@ def _settings_split(resolution: Resolution) -> Tuple[List[str], List[str]]:
 
 def build_report(entries: Sequence[GameEntry], resolver: SourceResolver,
                  *, mode: Optional[str] = None) -> CoverageReport:
-    """Match every library entry against the cached source data."""
-    from ...library import infrastructure_entries
+    """Match every game against the cached source data.
 
-    infrastructure = infrastructure_entries(entries)
-    infrastructure_ids = {id(e) for e in infrastructure}
-    games = [e for e in entries if id(e) not in infrastructure_ids]
+    Works over game identities rather than raw entries, so one game installed
+    from two launchers is counted once and looks up one recommendation.
+    """
+    from ...classification import classify_entry
 
-    report = CoverageReport(infrastructure=list(infrastructure),
+    non_games = [e for e in entries if not classify_entry(e).is_game]
+    identities = build_identities(entries)
+    synced = bool(getattr(getattr(resolver, "cache", None), "index", None)
+                  and resolver.cache.index.entries)
+
+    report = CoverageReport(infrastructure=list(non_games),
                             source_games=len(resolver.candidates()))
-    for entry in games:
+    if not synced:
+        report.note = (
+            "The recommendation cache has never been synced, so no game has been\n"
+            "checked against the source. This is not the same as those games\n"
+            "having no recommendation. Run 'travelready settings update'.")
+    for identity in identities:
+        installation = identity.best_installation()
+        entry = installation.entry if installation else None
+        if entry is None:
+            continue
+        if not synced:
+            report.rows.append(GameCoverage(
+                entry=entry, status=STATUS_SOURCE_UNAVAILABLE,
+                reason="the recommendation cache has not been synced",
+                identity=identity))
+            continue
         resolution = resolver.resolve(entry, mode=mode, accept_review=False)
         found = resolution.match
         automatic, manual = _settings_split(resolution)
         report.rows.append(GameCoverage(
             entry=entry,
+            identity=identity,
             status=resolution.status,
             matched_title=(found.matched_title if found else ""),
             confidence=(found.confidence if found else 0.0),
@@ -208,29 +273,34 @@ def title_only_report(entries: Sequence[GameEntry],
     to have a page for, without claiming to know what those pages recommend.
     Every row is therefore ``review`` at best — a title match is not a profile.
     """
-    from ...library import infrastructure_entries
+    from ...classification import classify_entry
 
     catalogue = [
         type("SeedEntry", (), {"title": title, "source_url": url,
                                "device_family": device_family})()
         for title, url in seed_titles(device_family)
     ]
-    infrastructure = infrastructure_entries(entries)
-    infrastructure_ids = {id(e) for e in infrastructure}
-    games = [e for e in entries if id(e) not in infrastructure_ids]
+    non_games = [e for e in entries if not classify_entry(e).is_game]
+    identities = build_identities(entries)
 
-    report = CoverageReport(infrastructure=list(infrastructure),
+    report = CoverageReport(infrastructure=list(non_games),
                             source_games=len(catalogue))
     report.note = (
         "Matched against the observed post-title list only. A title match means a\n"
         "page exists, not that its settings are known — run 'travelready settings\n"
         "update' on a machine that can reach rogallylife.com to read them. The\n"
         "observed list is partial, so this is a lower bound.")
-    for entry in games:
-        found = match(entry.name, catalogue)
+    for identity in identities:
+        installation = identity.best_installation()
+        if installation is None:
+            continue
+        entry = installation.entry
+        found = match(identity.canonical_title, catalogue)
         report.rows.append(GameCoverage(
             entry=entry,
-            status=("review" if found and found.confidence >= MIN_THRESHOLD else "no_profile"),
+            identity=identity,
+            status=(STATUS_REVIEW if found and found.confidence >= MIN_THRESHOLD
+                    else STATUS_NO_PROFILE),
             matched_title=(found.matched_title if found else ""),
             confidence=(found.confidence if found else 0.0),
             reason=(found.reason if found else "no candidate above the threshold"),

@@ -24,7 +24,11 @@ from typing import Callable, Dict, List, Optional, Sequence
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from . import __version__, discovery, history, launch_tester as lt, readiness
+from . import (
+    __version__, classification, discovery, doctor as doctor_mod, environment,
+    history, identity as identity_mod, launch_tester as lt, launchers,
+    preparation, prepare_run, readiness,
+)
 from .apppaths import data_file
 from .library import (
     LIBRARY_FILE, SCAN_FOLDERS_FILE, GameEntry, export_games, import_games,
@@ -96,6 +100,12 @@ class TravelReadyGUI:
         self.current_plan = None
         self.source_cache = ProfileCache()
         self.resolver = self._build_resolver()
+        self.environment = environment.current(check_network=False)
+        self.identities: List[identity_mod.GameIdentity] = []
+        #: Readiness is recomputed on demand and cached by identity key. The
+        #: previous build resolved every entry against the source on every
+        #: repaint, which is 149 fuzzy matches on the UI thread per tab switch.
+        self._reports: Dict[str, preparation.PreparationReport] = {}
 
         root.title(f"TravelReady {__version__}")
         root.geometry("1280x800")
@@ -133,31 +143,43 @@ class TravelReadyGUI:
     def _build_widgets(self) -> None:
         header = ttk.Frame(self.root, padding=(16, 12))
         header.pack(fill="x")
-        self.header_label = ttk.Label(header, text="TravelReady", font=HEAD_FONT)
-        self.header_label.pack(side="left")
-        self.dashboard_label = ttk.Label(header, text="", font=SUB_FONT)
+        left = ttk.Frame(header)
+        left.pack(side="left")
+        ttk.Label(left, text="TravelReady", font=HEAD_FONT).pack(anchor="w")
+        self.verdict_label = ttk.Label(left, text="", font=SUB_FONT)
+        self.verdict_label.pack(anchor="w")
+        self.dashboard_label = ttk.Label(header, text="", font=SUB_FONT,
+                                         justify="right")
         self.dashboard_label.pack(side="right")
 
         toolbar = ttk.Frame(self.root, padding=(12, 0, 12, 8))
         toolbar.pack(fill="x")
+        self.prepare_button = ttk.Button(toolbar, text="  Prepare for Travel  ",
+                                         style="Accent.TButton",
+                                         command=self._on_prepare_travel)
+        self.prepare_button.pack(side="left", padx=(4, 16))
+        self.resume_button = ttk.Button(toolbar, text="Resume",
+                                        command=self._on_resume_travel,
+                                        state="disabled")
+        self.resume_button.pack(side="left", padx=4)
         self.scan_button = ttk.Button(toolbar, text="Re-scan", command=self._on_scan)
         self.scan_button.pack(side="left", padx=4)
         self.test_button = ttk.Button(toolbar, text="Test selected",
                                       command=self._on_test_selected)
         self.test_button.pack(side="left", padx=4)
-        self.prepare_button = ttk.Button(toolbar, text="Prepare for Travel",
-                                         style="Accent.TButton",
-                                         command=self._on_prepare_travel)
-        self.prepare_button.pack(side="left", padx=4)
         self.cancel_button = ttk.Button(toolbar, text="Stop", command=self._on_cancel,
                                         state="disabled")
         self.cancel_button.pack(side="left", padx=4)
-        ttk.Button(toolbar, text="Trip report",
-                   command=self._show_trip_report).pack(side="right", padx=4)
-        ttk.Button(toolbar, text="History",
-                   command=self._show_history).pack(side="right", padx=4)
         ttk.Button(toolbar, text="Settings",
                    command=self._open_settings).pack(side="right", padx=4)
+        ttk.Button(toolbar, text="History",
+                   command=self._show_history).pack(side="right", padx=4)
+        ttk.Button(toolbar, text="Trip report",
+                   command=self._show_trip_report).pack(side="right", padx=4)
+        ttk.Button(toolbar, text="Diagnostics",
+                   command=self._show_doctor).pack(side="right", padx=4)
+        ttk.Button(toolbar, text="Launchers",
+                   command=self._show_launchers).pack(side="right", padx=4)
 
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill="x", padx=12)
@@ -173,16 +195,16 @@ class TravelReadyGUI:
 
         left = ttk.Frame(body)
         body.add(left, weight=3)
-        columns = ("launcher", "state", "verify", "settings", "last")
+        columns = ("launcher", "readiness", "verify", "settings", "last")
         self.tree = ttk.Treeview(left, columns=columns, show="tree headings",
                                  selectmode="extended")
         self.tree.heading("#0", text="Game")
         self.tree.column("#0", width=380, minwidth=220)
-        for name, title, width in (("launcher", "Launcher", 100),
-                                   ("state", "Readiness", 110),
-                                   ("verify", "Verified by", 110),
+        for name, title, width in (("launcher", "Launcher", 96),
+                                   ("readiness", "Travel readiness", 150),
+                                   ("verify", "Can verify", 96),
                                    ("settings", "Settings", 100),
-                                   ("last", "Last checked", 120)):
+                                   ("last", "Last checked", 116)):
             self.tree.heading(name, text=title)
             self.tree.column(name, width=width, anchor="w")
         scroll = ttk.Scrollbar(left, orient="vertical", command=self.tree.yview)
@@ -290,6 +312,12 @@ class TravelReadyGUI:
         self._log(report.describe())
         self.source_cache = ProfileCache()
         self.resolver = self._build_resolver()
+        self.environment = environment.current(check_network=False)
+        self.identities: List[identity_mod.GameIdentity] = []
+        #: Readiness is recomputed on demand and cached by identity key. The
+        #: previous build resolved every entry against the source on every
+        #: repaint, which is 149 fuzzy matches on the UI thread per tab switch.
+        self._reports: Dict[str, preparation.PreparationReport] = {}
         self._update_source_label()
         self._refresh()
         if report.blocked:
@@ -330,62 +358,112 @@ class TravelReadyGUI:
 
     def _load_library(self) -> None:
         self.entries, message = load_library(self._library_path())
+        self._rebuild_identities()
         self._log(message)
         self._set_status(message)
         self._refresh()
-        junk = infrastructure_entries(self.entries)
-        if junk:
-            self._log(f"{len(junk)} library entries look like launcher software rather "
-                      f"than games (e.g. {junk[0].name}). Use Settings to review them.")
+        saved = prepare_run.load_run()
+        self.resume_button.configure(
+            state="normal" if (saved and saved.resumable) else "disabled")
+        if saved and saved.resumable:
+            self._log(f"An interrupted preparation run is saved: "
+                      f"{saved.completed} of {saved.total} done. Press Resume.")
+
+    def _rebuild_identities(self) -> None:
+        games, non_games = classification.split_games(self.entries)
+        self.identities = identity_mod.build_identities(games)
+        self._reports.clear()
+        if non_games:
+            self._log(f"{len(non_games)} entries are not games (launchers, Windows "
+                      f"apps, utilities) and are excluded from every count.")
+
+    def _report_for(self, identity) -> preparation.PreparationReport:
+        """Readiness for one game, computed once and cached."""
+        cached = self._reports.get(identity.key)
+        if cached is None:
+            cached = preparation.assess(identity, env=self.environment,
+                                        resolver=self.resolver)
+            self._reports[identity.key] = cached
+        return cached
 
     def _save_library(self) -> None:
         save_library(self.entries, self._library_path())
 
-    def _visible_entries(self) -> List[GameEntry]:
+    def _visible_identities(self):
         if self.current_tab == "All":
-            return list(self.entries)
-        return [e for e in self.entries
-                if readiness.tab_for_launcher(e.launcher) == self.current_tab]
+            return list(self.identities)
+        return [i for i in self.identities
+                if any(readiness.tab_for_launcher(l) == self.current_tab
+                       for l in i.launchers)]
 
-    def _selected_entries(self) -> List[GameEntry]:
+    def _visible_entries(self) -> List[GameEntry]:
+        return [i.best_installation().entry for i in self._visible_identities()
+                if i.best_installation()]
+
+    def _selected_identities(self):
         return [self.iid_to_entry[iid] for iid in self.tree.selection()
                 if iid in self.iid_to_entry]
+
+    def _selected_entries(self) -> List[GameEntry]:
+        return [i.best_installation().entry for i in self._selected_identities()
+                if i.best_installation()]
 
     def _refresh(self) -> None:
         self.tree.delete(*self.tree.get_children())
         self.iid_to_entry.clear()
-        # Settings availability is shown beside launch readiness and never
-        # gates it: a game with no published profile is still ready to travel.
-        resolver = self.resolver if self.source_cache.index.entries else None
-        for entry in sorted(self._visible_entries(), key=lambda e: e.name.lower()):
-            state = readiness.state_of(entry, self.settings.stale_days)
-            verified = entry.verification
-            if entry.verification == "manual":
-                verified = "manual"
-            elif not lt.build_detection_plan(entry).has_any_signal:
-                verified = "not possible"
-            iid = self.tree.insert("", "end", text=entry.name,
-                                   values=(entry.launcher, state, verified,
-                                           readiness.settings_state_of(entry, resolver),
-                                           readiness.age_text(entry)))
-            self.iid_to_entry[iid] = entry
+        settings_labels = {"PASS": "profile", "WARN": "none",
+                           "UNKNOWN": "not checked", "NOT_APPLICABLE": "-"}
+        for identity in sorted(self._visible_identities(),
+                               key=lambda i: i.canonical_title.lower()):
+            installation = identity.best_installation()
+            if installation is None:
+                continue
+            report = self._report_for(identity)
+            verify = "yes" if installation.can_verify else "manual"
+            launcher = "+".join(identity.launchers)
+            iid = self.tree.insert(
+                "", "end", text=identity.canonical_title,
+                values=(launcher, report.readiness.replace("_", " ").title(),
+                        verify,
+                        settings_labels.get(report.settings_state, "-"),
+                        readiness.age_text(installation.entry)))
+            self.iid_to_entry[iid] = identity
         self._update_tab_labels()
         self._update_dashboard()
 
     def _update_tab_labels(self) -> None:
-        counts = readiness.tab_counts(self.entries)
+        counts = readiness.tab_counts(
+            [i.best_installation().entry for i in self.identities
+             if i.best_installation()])
         for index, tab in enumerate(readiness.TAB_ORDER):
             label = f"{tab} ({counts[tab]})" if counts[tab] else tab
             self.notebook.tab(index, text=label)
 
     def _update_dashboard(self) -> None:
-        visible = self._visible_entries()
-        summary = readiness.summarize(visible, self.settings.stale_days)
-        parts = [f"{state} {summary[state]}" for state in readiness.STATES
-                 if summary.get(state)]
-        verdict = ("TRAVEL READY" if readiness.is_travel_ready(visible, self.settings.stale_days)
-                   else "Needs attention")
-        self.dashboard_label.configure(text=f"{'   '.join(parts)}      {verdict}")
+        reports = [self._report_for(i) for i in self._visible_identities()]
+        counts = preparation.summarise(reports)
+        rows = [
+            f"Games: {counts['total']}",
+            f"Ready: {counts[preparation.READY]}",
+            f"Warnings: {counts[preparation.READY_WITH_WARNINGS]}",
+            f"Action required: {counts[preparation.ACTION_REQUIRED]}",
+        ]
+        if counts[preparation.UNSUPPORTED]:
+            rows.append(f"Unsupported: {counts[preparation.UNSUPPORTED]}")
+        if counts[preparation.READINESS_UNKNOWN]:
+            rows.append(f"Not checked: {counts[preparation.READINESS_UNKNOWN]}")
+        self.dashboard_label.configure(text="    ".join(rows))
+
+        blocked = counts[preparation.ACTION_REQUIRED] + counts[preparation.NOT_READY]
+        if not reports:
+            verdict = "No games yet — press Re-scan."
+        elif blocked:
+            verdict = f"{blocked} game(s) need attention before you travel."
+        elif counts[preparation.READINESS_UNKNOWN]:
+            verdict = "Some games have not been checked yet."
+        else:
+            verdict = "Everything in this tab is ready to travel."
+        self.verdict_label.configure(text=verdict)
 
     # -- events ------------------------------------------------------------
 
@@ -395,40 +473,31 @@ class TravelReadyGUI:
         self._refresh()
 
     def _on_select(self, _event=None) -> None:
-        selected = self._selected_entries()
+        selected = self._selected_identities()
         if not selected:
             return
-        entry = selected[0]
-        plan = lt.build_detection_plan(entry)
-        lines = [
-            entry.name, "",
-            f"Launcher          {entry.launcher}",
-            f"Launch method     {entry.launch_method or '(inferred)'}",
-            f"Launch target     {entry.display_target or '(none)'}",
-            f"Expected process  {', '.join(entry.process_names()) or '(unknown)'}",
-            f"Install folder    {entry.install_dir or '(unknown)'}",
-            f"Readiness         {readiness.state_of(entry, self.settings.stale_days)}",
-            f"Last result       {entry.last_result or 'never tested'}",
-            f"Last ready        {readiness.age_text(entry)}",
-            "",
-        ]
-        if plan.has_any_signal:
-            signals = []
-            if plan.process_names:
-                signals.append("process name")
-            if plan.install_dir:
-                signals.append("install folder")
-            if plan.track_launched_pid:
-                signals.append("launched process")
-            lines.append(f"Can be verified automatically using: {', '.join(signals)}.")
-        else:
-            lines.append("This game cannot be verified automatically. TravelReady will "
-                         "still launch it, then ask you to confirm it started.")
-        hint = readiness.failure_hint(entry)
-        if hint:
-            lines += ["", hint]
-        if entry.notes:
-            lines += ["", entry.notes]
+        identity = selected[0]
+        installation = identity.best_installation()
+        report = self._report_for(identity)
+        lines = [identity.canonical_title, ""]
+        for launcher in identity.launchers:
+            copy = identity.installation_for(launcher)
+            mark = "\u2713" if copy and copy.can_verify else "\u26a0"
+            lines.append(f"{mark} {launcher}"
+                         f"{'' if copy and copy.can_verify else '  (verify manually)'}")
+        lines += ["", f"Travel readiness: {report.readiness.replace('_', ' ')}", ""]
+        for check in report.checks:
+            if check.outcome != preparation.NOT_APPLICABLE:
+                lines.append(check.line())
+        if report.actions:
+            lines += ["", "What to do:"]
+            lines += [f"  {i}. {a}" for i, a in enumerate(report.actions, 1)]
+        if installation is not None:
+            lines += ["", "Installation", "-" * 40,
+                      f"Launch target     {installation.launch_target or '(none)'}",
+                      f"Verify by         "
+                      f"{', '.join(installation.verification_targets) or '(nothing)'}",
+                      f"Install folder    {installation.install_dir or '(unknown)'}"]
         self._set_text(self.detail_text, "\n".join(lines))
         self.apply_button.configure(state="disabled")
         self.current_plan = None
@@ -484,6 +553,10 @@ class TravelReadyGUI:
                     self._on_tested(payload)
                 elif kind == "source_synced":
                     self._on_source_synced(payload)
+                elif kind == "prepared":
+                    self._on_prepared(payload)
+                elif kind == "doctor":
+                    self._on_doctor(payload)
                 elif kind == "done":
                     self._worker_finished()
                     self._set_status(payload)
@@ -579,28 +652,70 @@ class TravelReadyGUI:
             return
         self._run_tests(entries, lt.MODE_STANDARD, self.settings.cleanup_after_test)
 
-    def _on_prepare_travel(self) -> None:
-        pool = self._selected_entries() or self._visible_entries()
-        targets, skipped = readiness.prepare_targets(
-            pool, self.settings.stale_days, self.settings.reverify_ready)
-        if skipped:
-            names = "\n".join(f"  • {e.name}" for e in skipped[:12])
-            self._log(f"{len(skipped)} game(s) cannot be closed safely and were "
-                      f"skipped:\n{names}")
-        if not targets:
-            messagebox.showinfo(
-                "All ready",
-                "Every game in this tab is already READY.\n\n"
-                "Enable 'Re-verify READY games' in Settings to test them again.")
+    def _on_prepare_travel(self, resume: bool = False) -> None:
+        identities = self._selected_identities() or self._visible_identities()
+        if not identities:
+            messagebox.showinfo("Nothing to prepare", "No games in this tab.")
             return
-        if not messagebox.askyesno(
-                "Prepare for Travel",
-                f"TravelReady will launch {len(targets)} game(s) one at a time, "
-                f"confirm each one starts, then close it.\n\nContinue?"):
-            return
-        self._run_tests(targets, lt.MODE_SMOKE, cleanup=True)
+        options = prepare_run.PrepareOptions(
+            launch=self.environment.windows.available,
+            cleanup=self.settings.cleanup_after_test,
+            smoke_duration=self.settings.smoke_duration,
+            reverify_ready=self.settings.reverify_ready,
+            resume=resume,
+        )
+        if not resume:
+            targets, skipped = prepare_run.plan_run(
+                identities, options, env=self.environment, resolver=self.resolver)
+            if not targets:
+                messagebox.showinfo(
+                    "All ready",
+                    "Every game in this tab is already prepared.\n\n"
+                    "Enable 'Re-verify' in Settings to check them again.")
+                return
+            detail = (f"TravelReady will work through {len(targets)} game(s), "
+                      f"starting each one, confirming it runs, then closing it.")
+            if skipped:
+                detail += (f"\n\n{len(skipped)} game(s) will be skipped because "
+                           f"TravelReady could not close them safely.")
+            if not options.launch:
+                detail = (f"Launching needs Windows, so {len(targets)} game(s) will "
+                          f"be assessed without being started.")
+            if not messagebox.askyesno("Prepare for Travel", detail + "\n\nContinue?"):
+                return
 
-    # -- settings optimiser ------------------------------------------------
+        def work() -> None:
+            try:
+                run = prepare_run.run_preparation(
+                    identities, options, env=self.environment,
+                    resolver=self.resolver,
+                    on_progress=lambda m: self.ui_queue.put(("log", m)),
+                    stop_event=self.cancel_event)
+                self.ui_queue.put(("prepared", run))
+            except Exception as exc:
+                self.ui_queue.put(("log", f"Preparation failed: {exc}"))
+                self.ui_queue.put(("done", "Preparation failed."))
+
+        self._start_worker(work, f"Preparing {len(identities)} game(s)\u2026")
+
+    def _on_resume_travel(self) -> None:
+        self._on_prepare_travel(resume=True)
+
+    def _on_prepared(self, run) -> None:
+        self._worker_finished()
+        self._save_library()
+        self._rebuild_identities()
+        self._refresh()
+        self.resume_button.configure(state="normal" if run.resumable else "disabled")
+        text = prepare_run.render_run_report(run, self.identities,
+                                             resolver=self.resolver)
+        self._log(text)
+        self._set_status("Preparation finished."
+                         if run.status == prepare_run.STATUS_COMPLETE
+                         else "Preparation interrupted — press Resume.")
+        self._show_text_window("Travel preparation", text)
+
+    # -- settings optimiser ---    # -- settings optimiser ------------------------------------------------
 
     def _on_review_settings(self) -> None:
         selected = self._selected_entries()
@@ -702,33 +817,99 @@ class TravelReadyGUI:
 
     # -- dialogs -----------------------------------------------------------
 
-    def _show_trip_report(self) -> None:
+    def _show_text_window(self, title: str, content: str,
+                          *, width: str = "900x680") -> None:
         window = tk.Toplevel(self.root)
-        window.title("Trip report")
-        window.geometry("820x640")
-        text = tk.Text(window, wrap="word", font=BASE_FONT, padx=16, pady=16)
+        window.title(title)
+        window.geometry(width)
+        text = tk.Text(window, wrap="word", font=MONO_FONT, padx=16, pady=16)
         text.pack(fill="both", expand=True)
-        visible = self._visible_entries()
-        lines = ["TRAVELREADY TRIP REPORT", "=" * 52, ""]
-        for state in readiness.STATES:
-            rows = [e for e in visible
-                    if readiness.state_of(e, self.settings.stale_days) == state]
+        text.insert("1.0", content)
+        text.configure(state="disabled")
+        bar = ttk.Frame(window, padding=8)
+        bar.pack(fill="x")
+        ttk.Button(bar, text="Save as\u2026",
+                   command=lambda: self._save_report(content)).pack(side="right")
+        ttk.Button(bar, text="Close",
+                   command=window.destroy).pack(side="right", padx=6)
+
+    def _show_doctor(self) -> None:
+        self._set_status("Running diagnostics\u2026")
+
+        def work() -> None:
+            try:
+                report = doctor_mod.run_doctor(library_path=self._library_path())
+                self.ui_queue.put(("doctor", report))
+            except Exception as exc:
+                self.ui_queue.put(("log", f"Diagnostics failed: {exc}"))
+                self.ui_queue.put(("done", "Diagnostics failed."))
+
+        self._start_worker(work, "Running diagnostics\u2026")
+
+    def _on_doctor(self, report) -> None:
+        self._worker_finished()
+        self._set_status("Diagnostics finished.")
+        window = tk.Toplevel(self.root)
+        window.title("Diagnostics")
+        window.geometry("900x720")
+        text = tk.Text(window, wrap="word", font=MONO_FONT, padx=16, pady=16)
+        text.pack(fill="both", expand=True)
+        text.insert("1.0", report.describe())
+        text.configure(state="disabled")
+        bar = ttk.Frame(window, padding=8)
+        bar.pack(fill="x")
+
+        def repair() -> None:
+            done = doctor_mod.apply_fixes(report)
+            messagebox.showinfo(
+                "Repairs",
+                ("\n".join(done) if done else "Nothing needed repairing.")
+                + "\n\nCredentials, DRM, anti-cheat and account state are never "
+                  "changed automatically.")
+            window.destroy()
+
+        if report.repairable:
+            ttk.Button(bar, text=f"Repair {len(report.repairable)} item(s)",
+                       style="Accent.TButton", command=repair).pack(side="left")
+        ttk.Button(bar, text="Close", command=window.destroy).pack(side="right")
+
+    def _show_launchers(self) -> None:
+        lines = [launchers.capability_matrix(), "",
+                 "FULL = reliable   PARTIAL = works when a precondition holds",
+                 "NONE = cannot     UNKNOWN = not established", ""]
+        if self.environment.windows:
+            lines.append("Installed on this machine:")
+            for key in ("steam", "xbox", "ea", "epic", "ubisoft", "gog", "battlenet"):
+                adapter = launchers.ADAPTERS[key]
+                present = adapter.launcher_installed()
+                lines.append(f"  {adapter.display_name:<26}"
+                             f"{ {True: 'yes', False: 'no', None: 'unknown'}[present]}")
+        else:
+            lines.append("Launcher detection needs Windows.")
+        self._show_text_window("Launchers", "\n".join(lines), width="760x560")
+
+    def _show_trip_report(self) -> None:
+        identities = self._visible_identities()
+        reports = [self._report_for(i) for i in identities]
+        counts = preparation.summarise(reports)
+        lines = ["TRAVELREADY TRIP REPORT", "=" * 58, ""]
+        lines.append(f"Games: {counts['total']}")
+        lines.append("")
+        for verdict in preparation.READINESS_ORDER:
+            if counts.get(verdict):
+                lines.append(f"  {verdict.replace('_', ' '):<24}{counts[verdict]:>4}")
+        for verdict in preparation.READINESS_ORDER:
+            rows = [r for r in reports if r.readiness == verdict]
             if not rows:
                 continue
-            lines.append(f"{state} ({len(rows)})")
-            lines.append("-" * 52)
-            for entry in sorted(rows, key=lambda e: e.name.lower()):
-                lines.append(f"  {entry.name} [{entry.launcher}]")
-                hint = readiness.failure_hint(entry)
-                if hint:
-                    lines.append(f"      {hint}")
-            lines.append("")
-        lines.append("TRAVEL READY" if readiness.is_travel_ready(
-            visible, self.settings.stale_days) else "NOT READY")
-        text.insert("1.0", "\n".join(lines))
-        text.configure(state="disabled")
-        ttk.Button(window, text="Save as…",
-                   command=lambda: self._save_report("\n".join(lines))).pack(pady=8)
+            lines += ["", verdict.replace("_", " "), "-" * 58]
+            for report in sorted(rows, key=lambda r: r.game.lower()):
+                lines.append(f"  {report.game} [{report.launcher}]")
+                for check in report.failures + report.warnings:
+                    lines.append(f"      {check.mark} {check.label}: {check.reason}")
+        lines += ["", "Settings and launch readiness are separate: a game with no",
+                  "published profile is still ready to travel."]
+        self._show_text_window("Trip report", "\n".join(lines))
 
     def _save_report(self, content: str) -> None:
         path = filedialog.asksaveasfilename(defaultextension=".txt",

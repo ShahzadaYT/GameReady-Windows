@@ -197,17 +197,23 @@ _SETTINGS_FROM_STATUS = {
 def settings_state_of(entry, resolver=None) -> str:
     """Whether a ROG Ally Life profile is available for ``entry``.
 
-    This is reported *beside* launch readiness and never affects it: a game
-    with no published recommendation is still perfectly launchable, and
-    TravelReady must not hold up Prepare-for-Travel because an optional
-    optimisation is unavailable.
+    Reported *beside* launch readiness and never affecting it: a game with no
+    published recommendation is still perfectly launchable, and TravelReady
+    must not hold up Prepare-for-Travel because an optional optimisation is
+    unavailable.
+
+    ``Not checked`` and ``No profile`` are deliberately different answers. An
+    unsynced cache means we have not looked; only a synced cache that returned
+    nothing means the source has no recommendation. Reporting the first as the
+    second turns a temporary network problem into a permanent-looking fact.
     """
     if resolver is None:
         return SETTINGS_UNKNOWN
-    try:
-        resolution = resolver.resolve(entry)
-    except Exception:
+    cache = getattr(resolver, "cache", None)
+    index = getattr(cache, "index", None)
+    if not getattr(index, "entries", None):
         return SETTINGS_UNKNOWN
+    resolution = resolver.resolve(entry)
     state = _SETTINGS_FROM_STATUS.get(resolution.status, SETTINGS_UNKNOWN)
     if state == SETTINGS_READY and resolution.profile is not None:
         applicable = [r for r in resolution.profile.recommendations
