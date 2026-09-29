@@ -150,9 +150,21 @@ class RogAllyLifeClient:
     # -- plumbing ----------------------------------------------------------
 
     def _absolute(self, path: str) -> str:
-        if str(path).startswith(("http://", "https://")):
-            return str(path)
-        return urllib.parse.urljoin(self.base_url, str(path).lstrip("/"))
+        """Resolve ``path`` against the base URL, pinned to its host.
+
+        URLs reaching this client come from the site's own sitemap and index
+        pages, which are external input. Pinning the host means a stray or
+        hostile link cannot turn a settings sync into a request to an internal
+        address or a third party.
+        """
+        raw = str(path or "")
+        url = raw if raw.startswith(("http://", "https://")) else \
+            urllib.parse.urljoin(self.base_url, raw.lstrip("/"))
+        host = urllib.parse.urlsplit(url).hostname or ""
+        allowed = urllib.parse.urlsplit(self.base_url).hostname or ""
+        if host.lower() not in (allowed.lower(), f"www.{allowed.lower()}"):
+            raise FetchError(f"refusing to fetch {url}: host is not {allowed}")
+        return url
 
     def _throttle(self) -> None:
         delay = self.delay

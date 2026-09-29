@@ -47,9 +47,16 @@ def cache_root(root: Optional[Path] = None) -> Path:
 
 
 def entry_key(game: SourceGame) -> str:
-    """Filename stem for a cached game: slug, which already encodes the device."""
+    """Filename stem for a cached game: slug, which already encodes the device.
+
+    Slugs come from URLs, so they are external input. Anything that is not a
+    plain filename character is replaced, and leading dots and ``..`` segments
+    are removed, so a key can only ever name a file inside ``games/``.
+    """
     slug = game.slug or re.sub(r"[^a-z0-9]+", "-", game.title.lower()).strip("-")
-    return re.sub(r"[^a-z0-9._-]+", "-", slug.lower()).strip("-") or "entry"
+    key = re.sub(r"[^a-z0-9._-]+", "-", slug.lower())
+    key = key.replace("..", "-").strip("-.")
+    return key or "entry"
 
 
 def _atomic_write(path: Path, text: str) -> None:

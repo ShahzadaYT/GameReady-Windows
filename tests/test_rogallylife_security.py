@@ -246,3 +246,44 @@ def test_client_has_no_authentication_or_header_spoofing():
     for token in ("authorization", "cookie", "x-forwarded-for", "basic auth",
                   "api_key", "password"):
         assert token not in source
+
+
+# -- the client cannot be steered off its own host ---------------------------
+
+def test_client_refuses_a_url_on_another_host():
+    """Sitemap and index links are external input; the host is pinned."""
+    from travelready.optimiser.rogallylife.client import FetchError, RogAllyLifeClient
+
+    client = RogAllyLifeClient(opener=lambda *a, **k: None, delay=0,
+                               sleep=lambda s: None, respect_robots=False)
+    for url in ("https://evil.example/x-rog-ally-game-settings/",
+                "http://127.0.0.1:8080/admin",
+                "http://169.254.169.254/latest/meta-data/",
+                "https://rogallylife.com.evil.example/x-rog-ally/"):
+        with pytest.raises(FetchError, match="host is not"):
+            client.get(url)
+
+
+def test_client_accepts_its_own_host_and_www():
+    from travelready.optimiser.rogallylife.client import RogAllyLifeClient
+
+    client = RogAllyLifeClient(respect_robots=False)
+    assert client._absolute("https://rogallylife.com/a/").startswith("https://rogallylife.com/")
+    assert client._absolute("https://www.rogallylife.com/a/")
+    assert client._absolute("/relative/").startswith("https://rogallylife.com/")
+
+
+@pytest.mark.parametrize("slug", [
+    "../../etc/passwd", "..%2f..%2fx", "....//x", ".", "..", "", "a/b/c",
+])
+def test_cache_keys_cannot_escape_the_games_directory(slug, tmp_path):
+    from travelready.optimiser.rogallylife.cache import ProfileCache, entry_key
+
+    game = SourceGame(title="X", source_url=ALLY_URL,
+                      device_family="rog_ally_family", slug=slug)
+    key = entry_key(game)
+    assert ".." not in key
+    assert "/" not in key and "\\" not in key
+    cache = ProfileCache(tmp_path)
+    path = cache.path_for(key).resolve()
+    assert path.parent == (tmp_path / "games").resolve()
