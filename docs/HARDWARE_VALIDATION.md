@@ -81,3 +81,54 @@ Both root causes were established from the shipped bytecode and from your own
 
 The fixes are code-verified against that data. Whether they make *your* games
 launch on *your* device is the hardware test above.
+
+---
+
+## ROG Ally Life integration
+
+### CODE VERIFIED
+
+| Area | Evidence |
+|---|---|
+| Device family read from the post URL, including truncated slugs | `test_rogallylife_parser.py` |
+| Post-title decoration stripped to the game's name | `test_rogallylife_parser.py` |
+| Multiple profiles per game, each with its own settings table | `test_rogallylife_parser.py` |
+| Unrecognised settings kept, never dropped or guessed | `test_rogallylife_parser.py` |
+| A page with no settings yields no profiles | `test_rogallylife_parser.py` |
+| Malformed markup does not raise | `test_rogallylife_parser.py` |
+| Content hash covers the settings tables | `test_rogallylife_parser.py` |
+| Matching: trademark marks, apostrophes, dotted acronyms, colon/dash, editions, roman numerals, articles | `test_rogallylife_matcher.py` |
+| No automatic match between any two distinct titles in the real `games.json` | `test_rogallylife_matcher.py` |
+| Sequel and sibling guards (`Forza Horizon 5`≠`6`, `Unbound`≠`Heat`) | `test_rogallylife_matcher.py` |
+| Cache lifecycle, change detection, parser-version migration, corruption recovery | `test_rogallylife_cache.py` |
+| robots.txt, Crawl-delay, conditional requests, 304, retry/backoff, blocked reporting | `test_rogallylife_cache.py` |
+| Sync via REST API, sitemap and index fallbacks; unchanged/updated/missing | `test_rogallylife_cache.py` |
+| A blocked source leaves the cache intact and says so | `test_rogallylife_cache.py` |
+| Capability matrix gates what is applicable | `test_rogallylife_integration.py` |
+| Profile selection per operating mode, with reasons and alternatives | `test_rogallylife_integration.py` |
+| Attribution survives into the plan; local profiles win over synced data | `test_rogallylife_integration.py` |
+| Hostile source data cannot become applicable | `test_rogallylife_security.py` |
+| Client pinned to its own host; cache keys cannot escape `games/` | `test_rogallylife_security.py` |
+
+### REQUIRES A REACHABLE rogallylife.com
+
+`rogallylife.com` is blocked by this environment's egress proxy, so nothing
+below has run against the real site. Run on a machine with access:
+
+```
+pytest -m hardware
+travelready settings update -v
+travelready settings coverage --detail
+```
+
+| Test | What it would prove |
+|---|---|
+| `test_rogallylife_is_reachable` | the host answers |
+| `test_rogallylife_rest_api_is_available` | `/wp-json/wp/v2/posts` exists and paginates — the preferred route |
+| `test_rogallylife_robots_is_honoured_against_the_real_file` | the real robots.txt permits what we fetch |
+| `test_a_real_post_parses_into_profiles` | **the important one** — the parser against real markup, and the one that would catch a layout change |
+| `test_full_sync_against_the_real_site` | discovery, fetch, parse and cache end to end |
+
+If `test_a_real_post_parses_into_profiles` fails, the page structure differs
+from what was inferred: update `parser.py`, raise `PARSER_VERSION`, and the
+cache re-reads everything on the next sync.
