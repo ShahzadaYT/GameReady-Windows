@@ -48,8 +48,13 @@ _EDITION_WORDS = (
     "pc edition", "windows edition", "for windows", "digital edition",
 )
 
-#: Trademark and formatting noise.
-_NOISE_CHARS = dict.fromkeys(map(ord, "™®©"), None)
+#: Trademark and formatting noise. Apostrophes are *removed* rather than turned
+#: into separators, so "Marvel's Spider-Man" and "Marvels Spider Man" agree.
+_NOISE_CHARS = dict.fromkeys(map(ord, "™®©'’ʼ`"), None)
+
+#: A run of three or more single letters, as produced by a dotted acronym:
+#: "S.T.A.L.K.E.R." becomes "s t a l k e r", which must collapse to "stalker".
+_LETTER_RUN = re.compile(r"\b(?:[a-z] ){2,}[a-z]\b")
 
 #: Separators the launchers mangle. Xbox installs cannot contain ':' so the
 #: folder becomes '-'; Steam keeps the colon.
@@ -146,6 +151,8 @@ def normalize_title(text: str, *, drop_editions: bool = True) -> str:
     if drop_editions:
         working, _ = strip_editions(working)
     working = re.sub(r"[^a-z0-9 ]+", " ", working.lower())
+    working = re.sub(r"\s+", " ", working).strip()
+    working = _LETTER_RUN.sub(lambda m: m.group(0).replace(" ", ""), working)
     return re.sub(r"\s+", " ", working).strip()
 
 

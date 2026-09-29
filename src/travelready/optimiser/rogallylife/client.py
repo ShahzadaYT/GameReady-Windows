@@ -330,7 +330,12 @@ class RogAllyLifeClient:
                 target = path if page == 1 else f"{path.rstrip('/')}/page/{page}/"
                 try:
                     response = self.get(target)
-                except FetchError:
+                except FetchError as exc:
+                    # A 404 just means the archive ended. A blocked host means
+                    # we learned nothing, and the caller must be able to tell
+                    # those apart or a denied network looks like an empty site.
+                    if exc.blocked:
+                        raise
                     break
                 found = [(t, u) for t, u in parse_index(response.body, base_url=self.base_url)
                          if device_family_from_url(u) == device_family]

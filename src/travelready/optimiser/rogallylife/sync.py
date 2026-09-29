@@ -154,6 +154,15 @@ def discover(client: RogAllyLifeClient, device_family: str = "rog_ally_family",
     note("Falling back to the index pages.")
     found = [Discovered(url=url, title=title, device_family=device_family)
              for title, url in client.index_urls(device_family)]
+    if not found:
+        # Nothing worked. Distinguish "the site has no such posts" from "we
+        # could not reach the site at all" — the second must not look like the
+        # first, or a denied network would silently read as an empty catalogue.
+        try:
+            client.get("")
+        except FetchError as exc:
+            if exc.blocked:
+                raise
     return found, "index pages"
 
 

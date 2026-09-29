@@ -257,7 +257,13 @@ def parse_post(html: str, *, url: str = "", title: str = "",
     if not profiles and shared:
         profiles = [SourceProfile(name="Recommended", settings=list(shared))]
 
-    body = " ".join(text for _, text in blocks)
+    # The hash must cover the settings tables, not just the prose: a table cell
+    # is held in ``rows``, not ``blocks``, so hashing blocks alone would miss a
+    # changed recommendation — precisely the change detection exists to catch.
+    body = " ".join(
+        [text for _, text in blocks]
+        + [" ".join(cells) for _, cells in extractor.rows]
+    )
     rating = None
     rating_match = _STAR_RATING.search(body)
     if rating_match:

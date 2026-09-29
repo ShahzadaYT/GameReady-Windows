@@ -22,6 +22,7 @@ Three things are enforced on the way across:
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -46,6 +47,22 @@ _FAMILY_FOR_DEVICE = {
 def family_for_device(device: str) -> str:
     """Which ROG Ally Life post family covers ``device``."""
     return _FAMILY_FOR_DEVICE.get(str(device or ""), "")
+
+
+#: "1600x900", "1920 x 1080" — a resolution stated as a pair.
+_RESOLUTION_PAIR = re.compile(r"^\s*(\d{3,5})\s*[x\u00d7]\s*(\d{3,5})\s*$", re.IGNORECASE)
+
+
+def _split_resolution(value: str) -> Optional[Tuple[str, str]]:
+    """``"1600x900"`` -> ``("1600", "900")``, else ``None``.
+
+    Engines store resolution as two keys (Unreal's ``ResolutionSizeX`` /
+    ``ResolutionSizeY``), so a single "resolution" recommendation has no config
+    key of its own and would be stuck at RESEARCH_REQUIRED. Splitting it makes
+    the setting genuinely applicable instead of merely reported.
+    """
+    match = _RESOLUTION_PAIR.match(str(value or ""))
+    return (match.group(1), match.group(2)) if match else None
 
 
 def _recommendation_for(setting, profile: SourceProfile) -> Optional[Recommendation]:
@@ -100,6 +117,23 @@ def to_game_profile(game: SourceGame, selection: Selection,
         recommendation = _recommendation_for(setting, selection.profile)
         if recommendation is None:
             continue
+
+        # A resolution given as WxH becomes the two keys engines actually store.
+        if recommendation.key == "resolution" and recommendation.category == CATEGORY_GAME:
+            pair = _split_resolution(recommendation.value)
+            if pair is not None:
+                width, height = pair
+                for key, value in (("resolution_width", width),
+                                   ("resolution_height", height)):
+                    marker = (key, CATEGORY_GAME)
+                    if marker in seen:
+                        continue
+                    seen.add(marker)
+                    recommendations.append(Recommendation(
+                        key=key, value=value, category=CATEGORY_GAME,
+                        note=f"{setting.label} ({recommendation.value})"))
+                continue
+
         marker = (recommendation.key, recommendation.category)
         if marker in seen:
             continue

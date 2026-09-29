@@ -159,10 +159,35 @@ def render_plan(plan: ChangePlan) -> str:
             lines.append(f"! {warning}")
         return "\n".join(lines)
 
-    lines.append("ROG Ally Life profile:")
+    lines.append(f"{plan.profile.source} profile:")
     lines.append("FOUND ✓")
-    lines.append(f"Source: {plan.profile.attribution}")
-    lines.append(f"Device: {plan.profile.device}")
+    lines.append("")
+    lines.append(f"Source:             {plan.profile.source}")
+    lines.append(f"URL:                {plan.profile.source_url}")
+    if plan.profile.source_date:
+        lines.append(f"Source updated:     {plan.profile.source_date}")
+    if plan.profile.source_version:
+        lines.append(f"Parser version:     {plan.profile.source_version}")
+    lines.append(f"Device:             {plan.profile.device}")
+
+    # When the profile came from an external source, show how it was found and
+    # why this particular performance profile was chosen — a recommendation the
+    # user cannot trace is one they cannot judge.
+    resolution = getattr(plan, "resolution", None)
+    found_match = getattr(resolution, "match", None)
+    if found_match is not None:
+        lines.append("")
+        lines.append(f"Matched:            {found_match.matched_title}")
+        lines.append(f"Confidence:         {found_match.confidence:.2f} "
+                     f"({found_match.reason})")
+    selection = getattr(resolution, "selection", None)
+    if selection is not None and selection.profile is not None:
+        lines.append("")
+        lines.append(f"Profile:            {selection.profile.label}")
+        lines.append(f"Operating mode:     {selection.mode}")
+        lines.append(f"Chosen because:     {selection.reason}")
+        if selection.alternatives:
+            lines.append(f"Also published:     {', '.join(selection.alternatives)}")
     lines.append("")
 
     def section(title: str, rows: Sequence[ProposedChange], marker: str) -> None:
