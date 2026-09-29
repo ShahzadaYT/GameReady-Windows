@@ -396,18 +396,13 @@ def merge_library_updates(existing: Sequence[GameEntry],
 
 
 def infrastructure_entries(entries: Sequence[GameEntry]) -> List[GameEntry]:
-    """Entries that look like launcher plumbing rather than games.
+    """Entries that are not games — launchers, system apps, utilities.
 
-    The supplied library contains ``ea | Electronic Arts | … EADesktop.exe`` and
-    ``ea | EA Games | … NeedForSpeedUnboundTrial.exe``. Surfaced for the user to
-    remove rather than deleted silently — TravelReady does not throw away
-    library rows on its own.
+    Delegates to :mod:`travelready.classification`, which is the single
+    classifier and records *why* each entry was excluded. Surfaced for the user
+    to review rather than deleted: TravelReady does not throw away library rows
+    on its own.
     """
-    from .discovery import is_blacklisted_name, is_launcher_infrastructure
+    from .classification import classify_entry
 
-    out = []
-    for entry in entries:
-        if is_blacklisted_name(entry.name) or (
-                entry.exe_path and is_launcher_infrastructure(entry.exe_path)):
-            out.append(entry)
-    return out
+    return [e for e in entries if not classify_entry(e).is_game]
