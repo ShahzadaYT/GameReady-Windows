@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from ...apppaths import data_subdir
+from ...textnorm import atomic_write
 from .model import SourceGame
 
 CACHE_VERSION = 1
@@ -57,13 +58,6 @@ def entry_key(game: SourceGame) -> str:
     key = re.sub(r"[^a-z0-9._-]+", "-", slug.lower())
     key = key.replace("..", "-").strip("-.")
     return key or "entry"
-
-
-def _atomic_write(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    os.replace(tmp, path)
 
 
 @dataclass
@@ -129,7 +123,7 @@ class ProfileCache:
 
     def save_index(self) -> None:
         self.index.last_sync = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        _atomic_write(self._index_path(), json.dumps(self.index.to_dict(), indent=2))
+        atomic_write(self._index_path(), json.dumps(self.index.to_dict(), indent=2))
 
     # -- games -------------------------------------------------------------
 
@@ -151,7 +145,7 @@ class ProfileCache:
     def put(self, game: SourceGame) -> str:
         """Cache one game and update the index. Returns its key."""
         key = entry_key(game)
-        _atomic_write(self.path_for(key), json.dumps(game.to_dict(), indent=2))
+        atomic_write(self.path_for(key), json.dumps(game.to_dict(), indent=2))
         self.index.entries[key] = {
             "title": game.title,
             "source_url": game.source_url,

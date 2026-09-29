@@ -41,7 +41,8 @@ import sys
 from pathlib import Path, PureWindowsPath
 from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
-from .library import GameEntry, as_path, identity_key, normalize_launcher
+from .library import GameEntry, identity_key, normalize_launcher
+from .textnorm import as_path, leaf
 
 IS_WINDOWS = sys.platform.startswith("win")
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000) if IS_WINDOWS else 0
@@ -107,8 +108,6 @@ _XBOX_SKIP = (
 
 _EA_INFRA_DIRS = ("ea desktop", "electronic arts\\ea desktop", "origin",
                   "eaappinstaller", "ea app")
-
-_GAME_PUBLISHER_HINTS = ("games", "gaming", "studio", "interactive", "entertainment")
 
 _COMMON_DIRS = (
     r"C:\XboxGames",
@@ -229,13 +228,6 @@ def _iter_registry_subkeys(root, subkey: str) -> List[str]:
     except OSError:
         return []
     return out
-
-
-def _exists(path: str) -> bool:
-    try:
-        return bool(path) and Path(path).exists()
-    except OSError:
-        return False
 
 
 def largest_game_exe(directory: str, *, lister=None) -> str:
@@ -728,16 +720,6 @@ def discover_ea(cancel_event=None, progress: Progress = None) -> List[GameEntry]
         if progress:
             progress(f"EA: {title}")
     return entries
-
-
-def attach_ea_uri(entries: List[GameEntry], uri_entries: Sequence[GameEntry]) -> List[GameEntry]:
-    """Prefer the ``link2ea://`` launch route while keeping the resolved exe.
-
-    EA titles launch most reliably through their URI (it lets EA App handle
-    sign-in and updates), but the URI alone gives nothing to verify. Merging
-    keeps both halves on one entry.
-    """
-    return merge_entries(list(uri_entries) + list(entries))
 
 
 # --------------------------------------------------------------------------

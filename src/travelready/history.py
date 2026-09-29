@@ -8,18 +8,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence
 
+from .textnorm import atomic_write
+
 HISTORY_FILE = "history.json"
 HISTORY_VERSION = "2"
 MAX_RECORDS = 2000
-
-
-def _atomic_write(path: Path, text: str) -> None:
-    import os
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    os.replace(tmp, path)
 
 
 def _to_dict(record) -> dict:
@@ -53,7 +46,7 @@ def save_history(records: Sequence[dict], path: Path) -> None:
         "saved_at": datetime.now(timezone.utc).isoformat(),
         "records": [_to_dict(r) for r in records][-MAX_RECORDS:],
     }
-    _atomic_write(Path(path), json.dumps(payload, indent=2))
+    atomic_write(Path(path), json.dumps(payload, indent=2))
 
 
 def append_results(results: Iterable, path: Path) -> List[dict]:

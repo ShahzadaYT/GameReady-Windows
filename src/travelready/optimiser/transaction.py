@@ -39,6 +39,7 @@ from typing import Callable, Dict, List, Optional, Sequence
 from ..apppaths import backups_dir, data_file
 from ..library import GameEntry
 from ..processes import ProcessTable, default_table
+from ..textnorm import atomic_write, atomic_write_bytes
 from .configio import ConfigError, IniDocument, JsonDocument, load_document, unified_diff
 from .model import SAFE, ChangePlan, ProposedChange, TARGET_DEVICE
 from .safety import assert_writable, classify_path
@@ -294,9 +295,7 @@ def record_transaction(record: TransactionRecord, path: Optional[Path] = None) -
     except (OSError, ValueError):
         rows = []
     rows.append(record.to_dict())
-    tmp = Path(target).with_name(Path(target).name + ".tmp")
-    tmp.write_text(json.dumps({"transactions": rows[-500:]}, indent=2), encoding="utf-8")
-    os.replace(tmp, target)
+    atomic_write(target, json.dumps({"transactions": rows[-500:]}, indent=2))
 
 
 def apply_plan(entry: GameEntry, plan: ChangePlan, file_path: str,
@@ -389,12 +388,10 @@ def apply_plan(entry: GameEntry, plan: ChangePlan, file_path: str,
         raise TransactionError(record.error) from exc
 
     # 9 — atomic write
-    tmp = Path(resolved).with_name(Path(resolved).name + ".travelready-tmp")
     try:
-        tmp.write_bytes(new_bytes)
-        os.replace(tmp, resolved)
+        atomic_write_bytes(resolved, new_bytes)
     except OSError as exc:
-        tmp.unlink(missing_ok=True)
+        Path(resolved).with_name(Path(resolved).name + ".tmp").unlink(missing_ok=True)
         record.error = f"Write failed: {exc}"
         _rollback(record, backup, log_path)
         raise TransactionError(record.error) from exc

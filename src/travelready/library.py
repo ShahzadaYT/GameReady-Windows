@@ -36,15 +36,16 @@ import shutil
 import uuid
 from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timezone
-from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
+from pathlib import Path, PurePath
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+
+from .textnorm import as_path, atomic_write, fold, squash
 
 LIBRARY_VERSION = "3"
 LIBRARY_FILE = "games.json"
 SCAN_FOLDERS_FILE = "scan_folders.json"
 
 LAUNCHERS = ["steam", "epic", "ea", "ubisoft", "xbox", "gog", "battlenet", "other"]
-LAUNCH_METHODS = ["exe", "uri", "shell", "shortcut", ""]
 MODES = ["quick", "standard", "manual", "smoke"]
 
 VERIFY_AUTO = "auto"
@@ -102,9 +103,7 @@ def identity_key(name: str) -> str:
     join the two halves of an Xbox or EA game that discovery finds separately
     (one launchable, one verifiable) — see docs/ENGINEERING_ASSESSMENT.md.
     """
-    s = _IDENTITY_NOISE.sub(" ", str(name or ""))
-    s = re.sub(r"[^a-z0-9]+", "", s.lower())
-    return s
+    return squash(_IDENTITY_NOISE.sub(" ", str(name or "")))
 
 
 def _new_id() -> str:
@@ -199,23 +198,6 @@ class GameEntry:
         return cls(**clean)
 
 
-_WINDOWS_PATH = re.compile(r"^(?:[A-Za-z]:[\\/]|\\\\)")
-
-
-def as_path(value: str) -> PurePath:
-    """Parse ``value`` the way Windows would, whatever the host OS is.
-
-    TravelReady runs on Windows but is developed and unit-tested on Linux,
-    where ``pathlib.Path`` would read ``C:\\Games\\x.exe`` as one long
-    filename. Every path decision in this package goes through here so the
-    tests exercise the same logic the device will run.
-    """
-    s = str(value or "")
-    if _WINDOWS_PATH.match(s) or "\\" in s:
-        return PureWindowsPath(s)
-    return PurePosixPath(s)
-
-
 def is_pseudo_path(value: str) -> bool:
     """True for launch targets that are URIs or shell routes, not real files."""
     v = str(value or "").strip().lower()
@@ -245,15 +227,6 @@ def effective_launch_target(entry: GameEntry) -> str:
 # persistence
 # --------------------------------------------------------------------------
 
-def _atomic_write(path: Path, text: str) -> None:
-    """Write ``text`` to ``path`` without ever leaving a truncated file."""
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    os.replace(tmp, path)
-
-
 def save_library(entries: Sequence[GameEntry], path: Path) -> None:
     """Atomically write the library as versioned JSON."""
     payload = {
@@ -261,7 +234,7 @@ def save_library(entries: Sequence[GameEntry], path: Path) -> None:
         "saved_at": datetime.now(timezone.utc).isoformat(),
         "games": [e.to_dict() for e in entries],
     }
-    _atomic_write(Path(path), json.dumps(payload, indent=2))
+    atomic_write(Path(path), json.dumps(payload, indent=2))
 
 
 def load_library(path: Path) -> Tuple[List[GameEntry], str]:
@@ -308,42 +281,6 @@ def load_library(path: Path) -> Tuple[List[GameEntry], str]:
     return entries, f"Loaded {len(entries)} games."
 
 
-def find_by_name(entries: Iterable[GameEntry], name: str) -> Optional[GameEntry]:
-    target = str(name or "").strip().lower()
-    for e in entries:
-        if e.name.strip().lower() == target:
-            return e
-    return None
-
-
-def _dedup_key(entry: GameEntry) -> Tuple[str, str]:
-    """Key identifying an entry for duplicate suppression."""
-    target = (entry.launch_target or entry.exe_path or "").strip().lower()
-    return (entry.launcher, target or entry.name.strip().lower())
-
-
-def add_entry(entries: List[GameEntry], entry: GameEntry) -> bool:
-    """Append ``entry`` unless an identical target is already present."""
-    keys = {_dedup_key(e) for e in entries}
-    if _dedup_key(entry) in keys:
-        return False
-    entries.append(entry)
-    return True
-
-
-def dedupe(entries: Sequence[GameEntry]) -> List[GameEntry]:
-    """Remove exact duplicate targets, keeping the first occurrence."""
-    seen = set()
-    out: List[GameEntry] = []
-    for e in entries:
-        k = _dedup_key(e)
-        if k in seen:
-            continue
-        seen.add(k)
-        out.append(e)
-    return out
-
-
 def load_scan_folders(path: Path) -> List[str]:
     path = Path(path)
     if not path.exists():
@@ -357,10 +294,6 @@ def load_scan_folders(path: Path) -> List[str]:
     if isinstance(data, dict):
         return [str(x) for x in data.get("folders", [])]
     return []
-
-
-def save_scan_folders(folders: Sequence[str], path: Path) -> None:
-    _atomic_write(Path(path), json.dumps({"folders": list(folders)}, indent=2))
 
 
 def _rows_from_csv(path: Path) -> List[dict]:

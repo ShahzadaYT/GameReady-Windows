@@ -37,7 +37,7 @@ import re
 from dataclasses import dataclass
 from typing import Iterable, List, Optional, Sequence, Tuple
 
-from ..library import as_path
+from ..textnorm import as_path, path_components
 from .model import (
     BLOCKED, CATEGORY_DEVICE, CATEGORY_GAME, CAUTION, KNOWN_DEVICE_SETTINGS,
     KNOWN_GAME_SETTINGS, MANUAL, RESEARCH_REQUIRED, SAFE, category_of, worst,
@@ -154,8 +154,7 @@ def protected_component_in(path: str) -> str:
     Whole-segment matching: ``C:\\Windows`` is protected, a folder merely named
     ``WindowsNoEditor`` is not.
     """
-    parts = [p.strip().lower().rstrip("\\") for p in
-             str(path or "").replace("/", "\\").split("\\") if p.strip()]
+    parts = path_components(path)
     for i, part in enumerate(parts):
         if part in PROTECTED_COMPONENTS:
             return part

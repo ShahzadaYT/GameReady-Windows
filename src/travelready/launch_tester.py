@@ -63,14 +63,12 @@ from .processes import IS_WINDOWS, ProcessTable, default_table
 DEFAULT_LAUNCH_TIMEOUT = 60
 DEFAULT_VALIDATION_TIME = 15
 QUICK_VALIDATION_TIME = 5
-STANDARD_EXIT_WATCH = 10
 SMOKE_DEFAULT_DURATION = 10
 SMOKE_PRESETS = [5, 10, 15, 30]
 MAX_RESPAWNS = 5
 
 EA_LAUNCHER_PHASE_TIMEOUT = 45
 EA_GAME_PHASE_TIMEOUT = 90
-EA_LAUNCH_TIMEOUT = EA_GAME_PHASE_TIMEOUT
 URI_LAUNCH_TIMEOUT = 90
 XBOX_LAUNCH_TIMEOUT = 90
 
@@ -818,21 +816,6 @@ def _cleanup(result: TestResult, table: ProcessTable, game_pid: Optional[int],
             survivors.append(pid)
     result.cleanup_ok = ok_all
     result.survivors = survivors
-
-
-def run_batch(entries: Sequence[GameEntry], **kwargs) -> List[TestResult]:
-    """Run :func:`run_test` over several entries, in order."""
-    on_result = kwargs.pop("on_result", None)
-    stop_event = kwargs.get("stop_event")
-    results = []
-    for entry in entries:
-        if stop_event is not None and stop_event.is_set():
-            break
-        r = run_test(entry, **kwargs)
-        results.append(r)
-        if on_result:
-            on_result(r)
-    return results
 
 
 def summarize(results: Sequence[TestResult]) -> dict:

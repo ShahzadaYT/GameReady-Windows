@@ -92,12 +92,7 @@ class ProcInfo:
         return self.name.lower()
 
 
-def _norm_dir(path: str) -> str:
-    """Normalised, lower-cased directory with a single trailing separator."""
-    p = str(path or "").strip().replace("/", "\\")
-    if not p:
-        return ""
-    return p.rstrip("\\").lower() + "\\"
+from .textnorm import leaf as _leaf, norm_dir as _norm_dir  # noqa: E402
 
 
 class ProcessTable:
@@ -119,7 +114,7 @@ class ProcessTable:
 
     def pids_by_name(self, name: str) -> List[int]:
         """PIDs whose image name matches ``name`` (case-insensitive)."""
-        leaf = os.path.basename(str(name or "").replace("\\", "/")).lower()
+        leaf = _leaf(name).lower()
         if not leaf:
             return []
         if not leaf.endswith(".exe"):

@@ -23,9 +23,10 @@ from __future__ import annotations
 
 import difflib
 import re
-import unicodedata
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+
+from ...textnorm import fold, strip_noise
 
 #: At or above this, a match may be used automatically.
 AUTO_THRESHOLD = 0.90
@@ -86,15 +87,8 @@ _ABBREVIATIONS = {
 
 
 def strip_accents(text: str) -> str:
-    """Fold accents so ``Pokémon`` and ``Pokemon`` compare equal.
-
-    Trademark marks are removed *before* NFKD, because NFKD decomposes U+2122
-    into the letters "TM" — leaving ``STAR WARS Jedi: Fallen Order™`` as
-    ``…fallen ordertm``, which then fails to match the site's title.
-    """
-    cleaned = str(text or "").translate(_NOISE_CHARS)
-    decomposed = unicodedata.normalize("NFKD", cleaned)
-    return "".join(c for c in decomposed if not unicodedata.combining(c))
+    """Fold accents and trademark marks. See :func:`textnorm.strip_noise`."""
+    return strip_noise(text)
 
 
 def expand_roman_numerals(text: str) -> str:
@@ -144,16 +138,12 @@ def normalize_title(text: str, *, drop_editions: bool = True) -> str:
     edition words, and collapses to lowercase alphanumerics plus single spaces.
     Digits are always kept.
     """
-    working = strip_accents(text)
-    working = _SEPARATORS.sub(" ", working)
+    working = _SEPARATORS.sub(" ", strip_noise(text))
     working = expand_roman_numerals(working)
     working = expand_abbreviations(working)
     if drop_editions:
         working, _ = strip_editions(working)
-    working = re.sub(r"[^a-z0-9 ]+", " ", working.lower())
-    working = re.sub(r"\s+", " ", working).strip()
-    working = _LETTER_RUN.sub(lambda m: m.group(0).replace(" ", ""), working)
-    return re.sub(r"\s+", " ", working).strip()
+    return fold(working, separators=False)
 
 
 def _drop_article(text: str) -> str:

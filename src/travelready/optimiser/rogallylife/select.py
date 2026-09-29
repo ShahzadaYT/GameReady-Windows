@@ -34,11 +34,6 @@ MODE_TARGET_WATTS = {
     MODE_PERFORMANCE: 30,
 }
 
-MODE_DESCRIPTIONS = {
-    MODE_BATTERY: "Travel / battery — prefers the lowest published wattage.",
-    MODE_BALANCED: "Balanced — prefers around 18W, the site's balance point.",
-    MODE_PERFORMANCE: "Performance — prefers the highest published wattage.",
-}
 
 
 @dataclass(frozen=True)
@@ -151,10 +146,3 @@ def select_profile(game: SourceGame, mode: str = MODE_BALANCED,
         reason += f"; {len(unrated)} profile(s) state no wattage and were not ranked"
 
     return Selection(chosen, mode, reason, others(chosen), exact=exact)
-
-
-def summarise_profiles(game: SourceGame) -> str:
-    """All published profiles, one per line."""
-    if not game.profiles:
-        return "  (none published)"
-    return "\n".join(f"  {p.label}" for p in sorted(game.profiles, key=_sort_key))
