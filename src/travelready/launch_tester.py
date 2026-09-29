@@ -324,7 +324,23 @@ def build_command(entry: GameEntry):
 _UNSAFE_TARGET_CHARS = re.compile(r"[\x00-\x1f\x7f]")
 
 #: A URI target must be a real scheme, not an arbitrary string.
-_URI_TARGET = re.compile(r"^[a-z][a-z0-9+.\-]*://[^\s]", re.IGNORECASE)
+_URI_TARGET = re.compile(r"^(?P<scheme>[a-z][a-z0-9+.\-]*)://[^\s]", re.IGNORECASE)
+
+#: Schemes that must never be handed to ShellExecuteW. ``file:`` is the one
+#: that matters most here: an imported library could carry
+#: ``file:///C:/Users/Public/payload.exe``, which otherwise satisfies the
+#: "looks like a URI" rule and would be executed. The rest are the schemes
+#: routinely abused to run code or exfiltrate through a URL handler.
+#:
+#: Unknown launcher schemes are deliberately still allowed — a new storefront
+#: should not need a TravelReady release — because ShellExecuteW only activates
+#: a handler the user already has registered.
+_FORBIDDEN_URI_SCHEMES = frozenset({
+    "file", "data", "javascript", "jscript", "vbscript", "about", "blob",
+    "jar", "view-source", "chrome", "res", "mhtml", "ms-msdt", "search-ms",
+    "ms-officecmd", "ms-appinstaller", "ms-cxh", "ms-cxh-full", "shell",
+    "ldap", "gopher", "telnet", "ssh", "smb", "ftp", "http", "https",
+})
 _SHELL_TARGET = re.compile(r"^shell:[A-Za-z]", re.IGNORECASE)
 
 
@@ -343,8 +359,14 @@ def validate_launch_target(method: str, target: str) -> str:
     if hit:
         return (f"launch target contains the unsafe character "
                 f"{hit.group(0)!r} and will not be opened")
-    if method == METHOD_URI and not _URI_TARGET.match(text):
-        return "launch target is not a valid URI"
+    if method == METHOD_URI:
+        match = _URI_TARGET.match(text)
+        if not match:
+            return "launch target is not a valid URI"
+        scheme = match.group("scheme").lower()
+        if scheme in _FORBIDDEN_URI_SCHEMES:
+            return (f"'{scheme}:' is not a game-launcher scheme and will not be "
+                    f"opened")
     if method == METHOD_SHELL and not _SHELL_TARGET.match(text):
         return "launch target is not a valid shell: route"
     if method == METHOD_SHORTCUT and not text.lower().endswith(".lnk"):

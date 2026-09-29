@@ -185,6 +185,14 @@ def classify_path(path: str, *, must_exist: bool = False) -> Verdict:
     if not wp.is_absolute():
         return Verdict(BLOCKED, "Only absolute paths may be edited.")
 
+    # A UNC path names another machine. Writing a game's configuration to a
+    # remote share is never something TravelReady should do, and an imported
+    # library could otherwise point a settings write at an attacker's host.
+    if low.startswith("\\\\") or low.startswith("//"):
+        return Verdict(BLOCKED,
+                       "Path is on a network share. TravelReady only edits "
+                       "configuration on this machine.")
+
     hit = protected_marker_in(low)
     if hit:
         return Verdict(BLOCKED,
