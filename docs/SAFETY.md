@@ -69,6 +69,31 @@ force parameter. Cleanup only ever touches the tree TravelReady started or
 positively identified as the game, and it never kills a process to make a
 settings write possible: if the game or launcher is running, you close it.
 
+## Launch targets are data, not commands
+
+A launch target (`steam://…`, `link2ea://…`, `shell:AppsFolder\<AppID>`, a
+`.lnk` path) is opened with `os.startfile`, which calls `ShellExecuteW`
+directly. It is never routed through `cmd.exe`.
+
+This matters because a library is importable: `travelready import` and the
+GUI's **Import games…** accept a JSON or CSV library from anywhere, and copy
+`launch_target` verbatim. Handing such a string to `cmd /c start` would be a
+command injection — passing a list to `subprocess.Popen` avoids `shell=True`
+but not `cmd.exe`'s own parsing, and `list2cmdline` only quotes arguments
+containing whitespace, so `steam://x&payload.exe` would reach `cmd` unquoted
+and run a second command. `ShellExecuteW` has no command-line parser, so the
+target is one opaque string.
+
+`validate_launch_target` additionally requires a target to be structurally a
+URI, a `shell:` route or a `.lnk` path, and rejects control characters. It
+deliberately does **not** ban `&`: that character is only dangerous to a
+command-line parser, and Epic's own launch URI
+(`…?action=launch&silent=true`) contains one. The safety comes from removing
+the parser, not from banning characters a real launcher needs.
+
+Importing a library still means trusting it to name executables — that is
+inherent to a game launcher — but it can no longer smuggle a command.
+
 ## Classification
 
 Every proposed change gets exactly one of:

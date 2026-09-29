@@ -41,6 +41,7 @@ SAFETY CONTRACT
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 import time
@@ -312,32 +313,83 @@ def build_command(entry: GameEntry):
 # launch
 # --------------------------------------------------------------------------
 
+#: Control characters and NUL. These never occur in a real URI, shell: route or
+#: shortcut path, and they are the characters that could confuse whatever ends
+#: up handling the string.
+#:
+#: Shell metacharacters (``&``, ``|``, ``>``) are deliberately NOT rejected:
+#: they are only dangerous to a command-line parser, and ``_start_process`` no
+#: longer uses one. Epic's own launch URI is
+#: ``com.epicgames.launcher://apps/<id>?action=launch&silent=true``, so
+#: filtering ``&`` would break Epic while adding nothing once ``cmd.exe`` is
+#: out of the path.
+_UNSAFE_TARGET_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+
+#: A URI target must be a real scheme, not an arbitrary string.
+_URI_TARGET = re.compile(r"^[a-z][a-z0-9+.\-]*://[^\s]", re.IGNORECASE)
+_SHELL_TARGET = re.compile(r"^shell:[A-Za-z]", re.IGNORECASE)
+
+
+def validate_launch_target(method: str, target: str) -> str:
+    """Return an error describing why ``target`` must not be launched, or ``''``.
+
+    Launch targets are not always machine-derived: ``library.import_games``
+    accepts a JSON or CSV library from anywhere, and copies ``launch_target``
+    verbatim. A target is a *thing to open*, so anything that only makes sense
+    as shell syntax is rejected before it reaches the OS.
+    """
+    text = str(target or "")
+    if not text.strip():
+        return "empty launch target"
+    hit = _UNSAFE_TARGET_CHARS.search(text)
+    if hit:
+        return (f"launch target contains the unsafe character "
+                f"{hit.group(0)!r} and will not be opened")
+    if method == METHOD_URI and not _URI_TARGET.match(text):
+        return "launch target is not a valid URI"
+    if method == METHOD_SHELL and not _SHELL_TARGET.match(text):
+        return "launch target is not a valid shell: route"
+    if method == METHOD_SHORTCUT and not text.lower().endswith(".lnk"):
+        return "shortcut target is not a .lnk file"
+    return ""
+
+
 def _start_process(entry: GameEntry, command) -> tuple[Optional[object], Optional[int], str, str]:
     """Start the launch command.
 
     Returns ``(popen_or_None, launcher_pid, status_or_empty, error_text)``.
 
-    URI, ``shell:`` and ``.lnk`` targets go through ``cmd /c start``, which is
-    the documented way to hand a target to the shell. ``CreateProcess`` cannot
-    run a shortcut directly, so a shortcut launched any other way fails with
-    "not a valid Win32 application". For ``shell:AppsFolder\\…`` this is the
-    supported Microsoft Store launch route: it asks the shell to activate the
-    registered application. Nothing about the package is read, modified or
-    bypassed.
+    URI, ``shell:`` and ``.lnk`` targets are opened with :func:`os.startfile`,
+    which calls ``ShellExecuteW`` directly. They must **not** be routed through
+    ``cmd /c start``: passing a list to :class:`subprocess.Popen` avoids
+    ``shell=True`` but not ``cmd.exe``'s own parsing, and ``list2cmdline`` only
+    quotes arguments containing whitespace — so a target such as
+    ``steam://x&payload.exe`` would reach ``cmd`` unquoted and run a second
+    command. ``ShellExecuteW`` has no command-line parser at all, so the target
+    is handled as one opaque string; :func:`validate_launch_target` additionally
+    requires it to be structurally a URI, a ``shell:`` route or a ``.lnk``.
+
+    For ``shell:AppsFolder\\…`` this is the supported Microsoft Store launch
+    route: it asks the shell to activate the registered application. Nothing
+    about the package is read, modified or bypassed.
+
+    ``os.startfile`` returns no handle, so these launches report no PID. That
+    costs nothing: the PID of a shell activation is the launcher's, never the
+    game's, which is why ``DetectionPlan.track_launched_pid`` is False for them.
     """
     method = effective_launch_method(entry)
     cwd = entry.working_dir if entry.working_dir and os.path.isdir(entry.working_dir) else None
     if not IS_WINDOWS:
         return None, None, STATUS_UNKNOWN, "Launching is only supported on Windows."
-    no_window = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    if method in (METHOD_URI, METHOD_SHELL, METHOD_SHORTCUT):
+        problem = validate_launch_target(method, command[0])
+        if problem:
+            return None, None, STATUS_FAIL, f"Refusing to launch: {problem}."
     try:
         if method in (METHOD_URI, METHOD_SHELL, METHOD_SHORTCUT):
-            proc = subprocess.Popen(
-                ["cmd", "/c", "start", "", command[0]],
-                cwd=cwd, creationflags=no_window,
-            )
-        else:
-            proc = subprocess.Popen(command, cwd=cwd)
+            os.startfile(command[0])          # ShellExecuteW; no shell, no PID
+            return None, None, "", ""
+        proc = subprocess.Popen(command, cwd=cwd)
         return proc, proc.pid, "", ""
     except (PermissionError, FileNotFoundError, OSError) as exc:
         status, text = _map_creation_error(exc)
@@ -436,7 +488,10 @@ def build_detection_plan(entry: GameEntry) -> DetectionPlan:
     return DetectionPlan(
         process_names=entry.process_names(),
         install_dir=safe_install_dir(entry),
-        track_launched_pid=effective_launch_method(entry) in (METHOD_EXE, METHOD_SHORTCUT),
+        # Only a direct exe launch yields a PID that is actually the game.
+        # A URI, shell: or .lnk activation is handled by the shell, so any PID
+        # it produces belongs to the launcher, never to the game.
+        track_launched_pid=effective_launch_method(entry) == METHOD_EXE,
         is_ea=(entry.launcher == "ea"),
     )
 
@@ -595,7 +650,8 @@ def run_test(
     result.process_created = True
     result.launcher_pid = launcher_pid
     result.launch_stage = STAGE_LAUNCHER_STARTED
-    log(f"LAUNCHER_STARTED (pid {launcher_pid}).")
+    log(f"LAUNCHER_STARTED (pid {launcher_pid})." if launcher_pid is not None
+        else "LAUNCHER_STARTED (handed to the shell; no trackable pid).")
     if effective_launch_method(entry) == METHOD_EXE:
         result.launcher_started = True
 

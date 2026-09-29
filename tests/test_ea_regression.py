@@ -184,27 +184,130 @@ def test_launch_error_is_mapped_not_swallowed():
     assert "administrator" in result.failure_hint
 
 
-def test_shortcut_launches_go_through_the_shell():
-    """CreateProcess cannot run a .lnk; it must be handed to cmd /c start."""
+def test_shortcut_and_uri_launches_never_go_through_cmd():
+    """Regression: routing targets via 'cmd /c start' was command-injectable.
+
+    subprocess.list2cmdline only quotes arguments containing whitespace, so a
+    target like 'steam://x&payload.exe' reached cmd.exe unquoted and ran a
+    second command. These must use ShellExecuteW (os.startfile) instead.
+    """
+    import os as os_mod
+    import subprocess as sp
+
     import travelready.launch_tester as lt_mod
 
-    captured = {}
+    opened, spawned = [], []
 
-    class FakePopen:
+    class ForbiddenPopen:
         def __init__(self, args, **kwargs):
-            captured["args"] = args
-            self.pid = 4242
+            spawned.append(args)
+            raise AssertionError(f"a shell launch must not spawn a process: {args}")
 
-    entry = GameEntry(name="Shortcut game", launcher="ea",
-                      launch_method="shortcut",
-                      launch_target=r"C:\Users\S\Desktop\Battlefield 3.lnk")
+    for method, target in [
+        ("shortcut", r"C:\Users\S\Desktop\Battlefield 3.lnk"),
+        ("uri", "link2ea://launch/71067"),
+        ("shell", "shell:AppsFolder\\Pub.Game_abc!App"),
+    ]:
+        entry = GameEntry(name="G", launcher="ea", launch_method=method,
+                          launch_target=target)
+        orig_start, orig_popen, orig_win = (
+            getattr(os_mod, "startfile", None), sp.Popen, lt_mod.IS_WINDOWS)
+        os_mod.startfile = lambda t: opened.append(t)
+        sp.Popen, lt_mod.IS_WINDOWS = ForbiddenPopen, True
+        try:
+            proc, pid, status, err = lt_mod._start_process(entry, lt.build_command(entry))
+        finally:
+            sp.Popen, lt_mod.IS_WINDOWS = orig_popen, orig_win
+            if orig_start is None:
+                del os_mod.startfile
+            else:
+                os_mod.startfile = orig_start
+        assert status == "", err
+        assert pid is None, "a shell activation has no game PID to report"
+    assert opened == [r"C:\Users\S\Desktop\Battlefield 3.lnk",
+                      "link2ea://launch/71067",
+                      "shell:AppsFolder\\Pub.Game_abc!App"]
+    assert spawned == []
+
+
+@pytest.mark.parametrize("target", [
+    "&calc.exe",
+    "calc.exe",
+    "not-a-uri-at-all",
+    "steam://x\ncalc.exe",
+    "steam://x\x00calc.exe",
+    "",
+    "   ",
+])
+def test_structurally_invalid_or_control_bearing_targets_are_refused(target):
+    assert lt.validate_launch_target(lt.METHOD_URI, target) != ""
+
+
+def test_a_shell_method_target_must_be_a_shell_route():
+    assert lt.validate_launch_target(lt.METHOD_SHELL, "calc.exe") != ""
+    assert lt.validate_launch_target(lt.METHOD_SHELL,
+                                     "shell:AppsFolder\\P.G_x!App") == ""
+
+
+def test_a_shortcut_target_must_be_a_lnk():
+    assert lt.validate_launch_target(lt.METHOD_SHORTCUT, r"C:\x\payload.exe") != ""
+
+
+@pytest.mark.parametrize("method,target", [
+    (lt.METHOD_URI, "steam://rungameid/1030840"),
+    (lt.METHOD_URI, "link2ea://launch/71067"),
+    (lt.METHOD_URI, "com.epicgames.launcher://apps/abc?action=launch&silent=true"),
+    (lt.METHOD_SHELL, "shell:AppsFolder\\KeplerInteractive.Expedition33_ym!Game"),
+    (lt.METHOD_SHORTCUT, r"C:\Users\S\Desktop\Game.lnk"),
+])
+def test_real_launch_targets_are_accepted(method, target):
+    """Including Epic's, which legitimately contains '&'.
+
+    Safety here comes from not using a command-line parser, not from banning
+    characters that a real launcher needs.
+    """
+    assert lt.validate_launch_target(method, target) == ""
+
+
+def test_a_malicious_imported_library_cannot_execute_a_command(tmp_path):
+    """End to end: import a poisoned library, try to launch it, nothing runs."""
     import subprocess as sp
+
+    import travelready.launch_tester as lt_mod
+    from travelready.library import import_games
+
+    poisoned = tmp_path / "library.json"
+    poisoned.write_text(json.dumps({"version": "3", "games": [{
+        "name": "Free Game", "launcher": "steam", "launch_method": "uri",
+        "launch_target": "steam://rungameid/1&C:\\Users\\Public\\payload.exe",
+        "expected_process": "game.exe", "install_dir": EA_DIR}]}))
+    entries, _ = import_games(poisoned)
+
+    spawned = []
+
+    class ForbiddenPopen:
+        def __init__(self, args, **kwargs):
+            spawned.append(args)
+            raise AssertionError("nothing should be spawned")
+
+    import os as os_mod
+
+    opened = []
     orig_popen, orig_win = sp.Popen, lt_mod.IS_WINDOWS
-    sp.Popen, lt_mod.IS_WINDOWS = FakePopen, True
+    orig_start = getattr(os_mod, "startfile", None)
+    os_mod.startfile = lambda t: opened.append(t)
+    sp.Popen, lt_mod.IS_WINDOWS = ForbiddenPopen, True
     try:
-        proc, pid, status, err = lt_mod._start_process(entry, lt.build_command(entry))
+        proc, pid, status, err = lt_mod._start_process(
+            entries[0], lt.build_command(entries[0]))
     finally:
         sp.Popen, lt_mod.IS_WINDOWS = orig_popen, orig_win
-    assert status == "" and pid == 4242
-    assert captured["args"][:3] == ["cmd", "/c", "start"]
-    assert captured["args"][-1].endswith(".lnk")
+        if orig_start is None:
+            del os_mod.startfile
+        else:
+            os_mod.startfile = orig_start
+    # The payload is handed to ShellExecuteW as one opaque string, where it is
+    # simply an unresolvable target — it never becomes a second command.
+    assert spawned == [], "no process may be spawned for a URI launch"
+    assert opened == ["steam://rungameid/1&C:\\Users\\Public\\payload.exe"]
+    assert "cmd" not in str(opened)
