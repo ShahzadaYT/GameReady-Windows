@@ -1,9 +1,8 @@
 {
-  "version": "2",
-  "saved_at": "2026-09-26T20:51:36.716399+00:00",
+  "version": "3",
+  "saved_at": "2026-09-29T19:16:14.620673+00:00",
   "games": [
     {
-      "id": "ca1d4de662bd4bca9e972006f464e1e1",
       "name": "Mafia: Definitive Edition",
       "launcher": "steam",
       "source": "steam",
@@ -18,10 +17,15 @@
       "notes": "Steam AppID 1030840",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:13:29.695131+00:00"
+      "last_ready": "2026-09-23T21:13:29.695131+00:00",
+      "id": "ca1d4de662bd4bca9e972006f464e1e1",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "264bd5178658400ea95dff8f9df009cb",
       "name": "Evil West",
       "launcher": "steam",
       "source": "steam",
@@ -36,10 +40,15 @@
       "notes": "Steam AppID 1065310",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:07:33.482212+00:00"
+      "last_ready": "2026-09-23T21:07:33.482212+00:00",
+      "id": "264bd5178658400ea95dff8f9df009cb",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "8c30e24604934e80b119808028db116d",
       "name": "F1 2020",
       "launcher": "steam",
       "source": "steam",
@@ -54,10 +63,15 @@
       "notes": "Steam AppID 1080110",
       "origin": "auto",
       "last_result": "TIMEOUT",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "8c30e24604934e80b119808028db116d",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "ba364d56fe484d8ab4cafc65f1a9dd0c",
       "name": "Aliens: Dark Descent",
       "launcher": "steam",
       "source": "steam",
@@ -72,11 +86,16 @@
       "notes": "Steam AppID 1150440",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:02:47.720407+00:00"
+      "last_ready": "2026-09-23T21:02:47.720407+00:00",
+      "id": "ba364d56fe484d8ab4cafc65f1a9dd0c",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "8fe598f555c8462a9529be73a8c5d006",
-      "name": "Horizon Zero Dawn™ Complete Edition",
+      "name": "Horizon Zero Dawn\u2122 Complete Edition",
       "launcher": "steam",
       "source": "steam",
       "exe_path": "c:\\program files (x86)\\steam\\steamapps\\common\\Horizon Zero Dawn\\HorizonZeroDawn.exe",
@@ -90,11 +109,16 @@
       "notes": "Steam AppID 1151640",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:11:33.502836+00:00"
+      "last_ready": "2026-09-23T21:11:33.502836+00:00",
+      "id": "8fe598f555c8462a9529be73a8c5d006",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "4c916f05159346f78ace3d24f109135f",
-      "name": "ARMORED CORE™ VI FIRES OF RUBICON™",
+      "name": "ARMORED CORE\u2122 VI FIRES OF RUBICON\u2122",
       "launcher": "steam",
       "source": "steam",
       "exe_path": "c:\\program files (x86)\\steam\\steamapps\\common\\ARMORED CORE VI FIRES OF RUBICON\\Game\\armoredcore6.exe",
@@ -108,10 +132,15 @@
       "notes": "Steam AppID 1888160",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:04:41.250091+00:00"
+      "last_ready": "2026-09-23T21:04:41.250091+00:00",
+      "id": "4c916f05159346f78ace3d24f109135f",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "a31db5b2d8524bf6a1d920eddfac7aa3",
       "name": "Warhammer 40,000: Space Marine 2",
       "launcher": "steam",
       "source": "steam",
@@ -126,10 +155,15 @@
       "notes": "Steam AppID 2183900",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:22:49.993062+00:00"
+      "last_ready": "2026-09-23T21:22:49.993062+00:00",
+      "id": "a31db5b2d8524bf6a1d920eddfac7aa3",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "c88b79482b95454d8033e50437f9d8b6",
       "name": "Killing Floor 2",
       "launcher": "steam",
       "source": "steam",
@@ -144,10 +178,15 @@
       "notes": "Steam AppID 232090",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:12:04.325323+00:00"
+      "last_ready": "2026-09-23T21:12:04.325323+00:00",
+      "id": "c88b79482b95454d8033e50437f9d8b6",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "a15571df94f2473fbe2bc0692ba7da1e",
       "name": "Mad Max",
       "launcher": "steam",
       "source": "steam",
@@ -162,10 +201,15 @@
       "notes": "Steam AppID 234140",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:13:10.226763+00:00"
+      "last_ready": "2026-09-23T21:13:10.226763+00:00",
+      "id": "a15571df94f2473fbe2bc0692ba7da1e",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "e3b06034480d4982beab0fb119d00e33",
       "name": "The Witcher 3: Wild Hunt - Complete Edition",
       "launcher": "steam",
       "source": "steam",
@@ -180,10 +224,15 @@
       "notes": "Steam AppID 292030",
       "origin": "auto",
       "last_result": "TIMEOUT",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "e3b06034480d4982beab0fb119d00e33",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "19a35956ca534dab8ff68064143cb706",
       "name": "Metro Exodus",
       "launcher": "steam",
       "source": "steam",
@@ -198,10 +247,15 @@
       "notes": "Steam AppID 412020",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:15:21.408695+00:00"
+      "last_ready": "2026-09-23T21:15:21.408695+00:00",
+      "id": "19a35956ca534dab8ff68064143cb706",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "dbad578767e34d978eefd2d3265104cb",
       "name": "Hellblade: Senua's Sacrifice",
       "launcher": "steam",
       "source": "steam",
@@ -216,11 +270,16 @@
       "notes": "Steam AppID 414340",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:10:11.364943+00:00"
+      "last_ready": "2026-09-23T21:10:11.364943+00:00",
+      "id": "dbad578767e34d978eefd2d3265104cb",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "797c5575d0734c8caf1d6a7f60de29a0",
-      "name": "ACE COMBAT™7: SKIES UNKNOWN",
+      "name": "ACE COMBAT\u21227: SKIES UNKNOWN",
       "launcher": "steam",
       "source": "steam",
       "exe_path": "c:\\program files (x86)\\steam\\steamapps\\common\\ACE COMBAT 7\\Ace7Game.exe",
@@ -234,10 +293,15 @@
       "notes": "Steam AppID 502500",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:02:15.052543+00:00"
+      "last_ready": "2026-09-23T21:02:15.052543+00:00",
+      "id": "797c5575d0734c8caf1d6a7f60de29a0",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "493e1aec02d54025af617c88e65fb498",
       "name": "Just Cause 4",
       "launcher": "steam",
       "source": "steam",
@@ -252,11 +316,16 @@
       "notes": "Steam AppID 517630",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:11:47.437208+00:00"
+      "last_ready": "2026-09-23T21:11:47.437208+00:00",
+      "id": "493e1aec02d54025af617c88e65fb498",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "379099b250d44e71bf3b770a4de28269",
-      "name": "HITMAN™ 2",
+      "name": "HITMAN\u2122 2",
       "launcher": "steam",
       "source": "steam",
       "exe_path": "c:\\program files (x86)\\steam\\steamapps\\common\\HITMAN2\\dx12Retail\\HITMAN2.exe",
@@ -270,10 +339,15 @@
       "notes": "Steam AppID 863550",
       "origin": "auto",
       "last_result": "TIMEOUT",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "379099b250d44e71bf3b770a4de28269",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "576c8ec2464342a1b30caabac27b190d",
       "name": "Control Ultimate Edition",
       "launcher": "steam",
       "source": "steam",
@@ -288,10 +362,15 @@
       "notes": "Steam AppID 870780",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:06:34.820803+00:00"
+      "last_ready": "2026-09-23T21:06:34.820803+00:00",
+      "id": "576c8ec2464342a1b30caabac27b190d",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "5f790158aa234395b3e90f95af0cc0c1",
       "name": "Lossless Scaling",
       "launcher": "steam",
       "source": "steam",
@@ -306,10 +385,15 @@
       "notes": "Steam AppID 993090",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:12:52.691703+00:00"
+      "last_ready": "2026-09-23T21:12:52.691703+00:00",
+      "id": "5f790158aa234395b3e90f95af0cc0c1",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "11212445403c4a68a5f6f56de010e103",
       "name": "Wingspan",
       "launcher": "steam",
       "source": "steam",
@@ -324,10 +408,15 @@
       "notes": "Steam AppID 1054490",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:23:08.894432+00:00"
+      "last_ready": "2026-09-23T21:23:08.894432+00:00",
+      "id": "11212445403c4a68a5f6f56de010e103",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "95bad48e691f469a83a52e6659c32cd2",
       "name": "Alan Wake",
       "launcher": "steam",
       "source": "steam",
@@ -342,11 +431,16 @@
       "notes": "Steam AppID 108710",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:02:29.343989+00:00"
+      "last_ready": "2026-09-23T21:02:29.343989+00:00",
+      "id": "95bad48e691f469a83a52e6659c32cd2",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "94b32c7a0be6427e8bb8e1cbc60bb2f5",
-      "name": "STAR WARS™: Squadrons",
+      "name": "STAR WARS\u2122: Squadrons",
       "launcher": "steam",
       "source": "steam",
       "exe_path": "D:\\SteamLibrary\\steamapps\\common\\STAR WARS Squadrons\\starwarssquadrons.exe",
@@ -360,10 +454,15 @@
       "notes": "Steam AppID 1222730",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:17:42.223413+00:00"
+      "last_ready": "2026-09-23T21:17:42.223413+00:00",
+      "id": "94b32c7a0be6427e8bb8e1cbc60bb2f5",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "fe967f19bad44a52a17ad929323c873d",
       "name": "BPM: BULLETS PER MINUTE",
       "launcher": "steam",
       "source": "steam",
@@ -378,10 +477,15 @@
       "notes": "Steam AppID 1286350",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:06:16.097034+00:00"
+      "last_ready": "2026-09-23T21:06:16.097034+00:00",
+      "id": "fe967f19bad44a52a17ad929323c873d",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "be3066141c714fccb3c7ea5fc63fc616",
       "name": "Mini Motor Racing X",
       "launcher": "steam",
       "source": "steam",
@@ -396,10 +500,15 @@
       "notes": "Steam AppID 1303990",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:15:39.536592+00:00"
+      "last_ready": "2026-09-23T21:15:39.536592+00:00",
+      "id": "be3066141c714fccb3c7ea5fc63fc616",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "75c37dd1ac894c60a3f7aaccab7b4964",
       "name": "Warhammer 40,000: Boltgun",
       "launcher": "steam",
       "source": "steam",
@@ -414,10 +523,15 @@
       "notes": "Steam AppID 2005010",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:21:47.257052+00:00"
+      "last_ready": "2026-09-23T21:21:47.257052+00:00",
+      "id": "75c37dd1ac894c60a3f7aaccab7b4964",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "0c1b92532a0a41ce828f9929b823de18",
       "name": "Little Nightmares Enhanced Edition",
       "launcher": "steam",
       "source": "steam",
@@ -432,10 +546,15 @@
       "notes": "Steam AppID 2149010",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:12:39.000432+00:00"
+      "last_ready": "2026-09-23T21:12:39.000432+00:00",
+      "id": "0c1b92532a0a41ce828f9929b823de18",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "75fdf71228ed455283756b97944ca540",
       "name": "Warhammer 40,000: Rogue Trader",
       "launcher": "steam",
       "source": "steam",
@@ -450,10 +569,15 @@
       "notes": "Steam AppID 2186680",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:22:22.707675+00:00"
+      "last_ready": "2026-09-23T21:22:22.707675+00:00",
+      "id": "75fdf71228ed455283756b97944ca540",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "1bad01168d1c4d009ff5a465ef72a071",
       "name": "Quake",
       "launcher": "steam",
       "source": "steam",
@@ -468,10 +592,15 @@
       "notes": "Steam AppID 2310",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:15:55.842084+00:00"
+      "last_ready": "2026-09-23T21:15:55.842084+00:00",
+      "id": "1bad01168d1c4d009ff5a465ef72a071",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "2e71105c207b4c82bbf6cfd7cfa6b12f",
       "name": "Quake II",
       "launcher": "steam",
       "source": "steam",
@@ -486,10 +615,15 @@
       "notes": "Steam AppID 2320",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:16:12.593054+00:00"
+      "last_ready": "2026-09-23T21:16:12.593054+00:00",
+      "id": "2e71105c207b4c82bbf6cfd7cfa6b12f",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "04570bf2b9b14e3599528366a7e3351e",
       "name": "Styx: Master of Shadows",
       "launcher": "steam",
       "source": "steam",
@@ -504,10 +638,15 @@
       "notes": "Steam AppID 242640",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:18:14.094430+00:00"
+      "last_ready": "2026-09-23T21:18:14.094430+00:00",
+      "id": "04570bf2b9b14e3599528366a7e3351e",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "dd407d492b9745b8bb3186fe882b42f0",
       "name": "Tomb Raider I-III Remastered Starring Lara Croft",
       "launcher": "steam",
       "source": "steam",
@@ -522,10 +661,15 @@
       "notes": "Steam AppID 2478970",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:21:03.461375+00:00"
+      "last_ready": "2026-09-23T21:21:03.461375+00:00",
+      "id": "dd407d492b9745b8bb3186fe882b42f0",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "fb1ba0867df549debff80acede4b372b",
       "name": "Batman: Arkham Asylum GOTY Edition",
       "launcher": "steam",
       "source": "steam",
@@ -540,11 +684,16 @@
       "notes": "Steam AppID 35140",
       "origin": "auto",
       "last_result": "TIMEOUT",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "fb1ba0867df549debff80acede4b372b",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "1693cf87fd5640329a0ebe5ca54bbae5",
-      "name": "DARK SOULS™ III",
+      "name": "DARK SOULS\u2122 III",
       "launcher": "steam",
       "source": "steam",
       "exe_path": "D:\\SteamLibrary\\steamapps\\common\\DARK SOULS III\\Game\\DarkSoulsIII.exe",
@@ -558,10 +707,15 @@
       "notes": "Steam AppID 374320",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:06:57.345004+00:00"
+      "last_ready": "2026-09-23T21:06:57.345004+00:00",
+      "id": "1693cf87fd5640329a0ebe5ca54bbae5",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "0be2eef88fd4442383ef178cea95eba6",
       "name": "Atari Vault",
       "launcher": "steam",
       "source": "steam",
@@ -576,10 +730,15 @@
       "notes": "Steam AppID 400020",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:04:56.438026+00:00"
+      "last_ready": "2026-09-23T21:04:56.438026+00:00",
+      "id": "0be2eef88fd4442383ef178cea95eba6",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "7487d84c1c3f419ba0cc50f4b5ec1128",
       "name": "Resident Evil 7 Biohazard",
       "launcher": "steam",
       "source": "steam",
@@ -594,10 +753,15 @@
       "notes": "Steam AppID 418370",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:16:33.596387+00:00"
+      "last_ready": "2026-09-23T21:16:33.596387+00:00",
+      "id": "7487d84c1c3f419ba0cc50f4b5ec1128",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "f5a8e1de540c4ca0a9abd4e088b35f52",
       "name": "Metro 2033",
       "launcher": "steam",
       "source": "steam",
@@ -612,10 +776,15 @@
       "notes": "Steam AppID 43110",
       "origin": "auto",
       "last_result": "TIMEOUT",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "f5a8e1de540c4ca0a9abd4e088b35f52",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "ed2c9bb213854fb2a8fc4aea11fbb1d5",
       "name": "APE OUT",
       "launcher": "steam",
       "source": "steam",
@@ -630,10 +799,15 @@
       "notes": "Steam AppID 447150",
       "origin": "auto",
       "last_result": "TIMEOUT",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "ed2c9bb213854fb2a8fc4aea11fbb1d5",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "23ac622d842c48a0adb157de932e10a1",
       "name": "God's Trigger",
       "launcher": "steam",
       "source": "steam",
@@ -648,10 +822,15 @@
       "notes": "Steam AppID 488730",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:08:54.111810+00:00"
+      "last_ready": "2026-09-23T21:08:54.111810+00:00",
+      "id": "23ac622d842c48a0adb157de932e10a1",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "24e9840727754d84a7931d5c4e202c0f",
       "name": "Maneater",
       "launcher": "steam",
       "source": "steam",
@@ -666,10 +845,15 @@
       "notes": "Steam AppID 629820",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:14:02.503576+00:00"
+      "last_ready": "2026-09-23T21:14:02.503576+00:00",
+      "id": "24e9840727754d84a7931d5c4e202c0f",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "7e85c7505ff549cf8e9e2be000111d7f",
       "name": "The Darkness II",
       "launcher": "steam",
       "source": "steam",
@@ -684,10 +868,15 @@
       "notes": "Steam AppID 67370",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:19:45.062197+00:00"
+      "last_ready": "2026-09-23T21:19:45.062197+00:00",
+      "id": "7e85c7505ff549cf8e9e2be000111d7f",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "afaf68ab10f14dddac3dd1b1454e5c49",
       "name": "Warhammer 40,000: Mechanicus",
       "launcher": "steam",
       "source": "steam",
@@ -702,10 +891,15 @@
       "notes": "Steam AppID 673880",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:22:05.428640+00:00"
+      "last_ready": "2026-09-23T21:22:05.428640+00:00",
+      "id": "afaf68ab10f14dddac3dd1b1454e5c49",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "dd0f040becc84821a6cb460c4e023e5c",
       "name": "GRIS",
       "launcher": "steam",
       "source": "steam",
@@ -720,10 +914,15 @@
       "notes": "Steam AppID 683320",
       "origin": "auto",
       "last_result": "TIMEOUT",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "dd0f040becc84821a6cb460c4e023e5c",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "9ce3e97ed11743a3b7451090f03119b3",
       "name": "ELDERBORN",
       "launcher": "steam",
       "source": "steam",
@@ -738,10 +937,15 @@
       "notes": "Steam AppID 727850",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:07:15.567424+00:00"
+      "last_ready": "2026-09-23T21:07:15.567424+00:00",
+      "id": "9ce3e97ed11743a3b7451090f03119b3",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "496078fbdace4754b84cbfd055643ec3",
       "name": "Valkyria Chronicles 4 Complete Edition",
       "launcher": "steam",
       "source": "steam",
@@ -756,10 +960,15 @@
       "notes": "Steam AppID 790820",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:21:28.981880+00:00"
+      "last_ready": "2026-09-23T21:21:28.981880+00:00",
+      "id": "496078fbdace4754b84cbfd055643ec3",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "a126f736055b4a958d2fdae1220c9113",
       "name": "The Awesome Adventures of Captain Spirit",
       "launcher": "steam",
       "source": "steam",
@@ -774,10 +983,15 @@
       "notes": "Steam AppID 845070",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:18:39.660101+00:00"
+      "last_ready": "2026-09-23T21:18:39.660101+00:00",
+      "id": "a126f736055b4a958d2fdae1220c9113",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "6bdd87b7bb78476a98658b6cc66b6464",
       "name": "American Fugitive",
       "launcher": "steam",
       "source": "steam",
@@ -792,10 +1006,15 @@
       "notes": "Steam AppID 934780",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:03:08.685669+00:00"
+      "last_ready": "2026-09-23T21:03:08.685669+00:00",
+      "id": "6bdd87b7bb78476a98658b6cc66b6464",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "e0eda7c515b04e66963c905a7e50d3c5",
       "name": "BioShock Remastered",
       "launcher": "epic",
       "source": "epic",
@@ -810,10 +1029,15 @@
       "notes": "Epic app bc2c95c6ff564a16b26644f1d3ac3c55",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:00:07.878623+00:00"
+      "last_ready": "2026-09-23T21:00:07.878623+00:00",
+      "id": "e0eda7c515b04e66963c905a7e50d3c5",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "619ab1b0164a44bba821850e36c739a5",
       "name": "Rise of the Tomb Raider: 20 Year Celebration",
       "launcher": "epic",
       "source": "epic",
@@ -828,10 +1052,15 @@
       "notes": "Epic app f7cc1c999ac146f39b356f53e3489514",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:29:56.272924+00:00"
+      "last_ready": "2026-09-23T21:29:56.272924+00:00",
+      "id": "619ab1b0164a44bba821850e36c739a5",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "ec1308284bc248f7bdcfead27d444d81",
       "name": "Marvel's Guardians of the Galaxy",
       "launcher": "epic",
       "source": "epic",
@@ -846,10 +1075,15 @@
       "notes": "Epic app 63a665088eb1480298f1e57943b225d8",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:28:36.735980+00:00"
+      "last_ready": "2026-09-23T21:28:36.735980+00:00",
+      "id": "ec1308284bc248f7bdcfead27d444d81",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "930172d67b354823bb8546936a5d5256",
       "name": "Marvel's Guardians of the Galaxy: Social-Lord Outfit",
       "launcher": "epic",
       "source": "epic",
@@ -864,10 +1098,15 @@
       "notes": "Epic app 9596620d263b40c083ddf1f0c662c8ff",
       "origin": "auto",
       "last_result": "TIMEOUT",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "930172d67b354823bb8546936a5d5256",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "0f6a8ef91a6f4a96af8e153845b1e51f",
       "name": "CYGNI - All Guns Blazing",
       "launcher": "epic",
       "source": "epic",
@@ -882,10 +1121,15 @@
       "notes": "Epic app 25ad72f164b948ab9e05eb18fab2cda8",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:00:30.577886+00:00"
+      "last_ready": "2026-09-23T21:00:30.577886+00:00",
+      "id": "0f6a8ef91a6f4a96af8e153845b1e51f",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "3572930090f84a058419cc3c638cdf18",
       "name": "GRIME",
       "launcher": "epic",
       "source": "epic",
@@ -900,10 +1144,15 @@
       "notes": "Epic app 028263f54a874e35800d142275254d2c",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:00:52.490384+00:00"
+      "last_ready": "2026-09-23T21:00:52.490384+00:00",
+      "id": "3572930090f84a058419cc3c638cdf18",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "b9955386fb9d4be28053bf120ef76953",
       "name": "GRID Legends",
       "launcher": "ea",
       "source": "ea",
@@ -918,11 +1167,16 @@
       "notes": "EA App URI launch. EA App may intercept launch; authentication required before game appears.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "b9955386fb9d4be28053bf120ef76953",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "56eb733135ef4c6a8bcc514fd42e00ba",
-      "name": "F1® 24",
+      "name": "F1\u00ae 24",
       "launcher": "ea",
       "source": "ea",
       "exe_path": "",
@@ -936,11 +1190,16 @@
       "notes": "EA App URI launch. EA App may intercept launch; authentication required before game appears.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "56eb733135ef4c6a8bcc514fd42e00ba",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "d198ebbd76e0432ba0e2ae7f4e3dcdab",
-      "name": "Immortals of Aveum™",
+      "name": "Immortals of Aveum\u2122",
       "launcher": "ea",
       "source": "ea",
       "exe_path": "",
@@ -954,11 +1213,16 @@
       "notes": "EA App URI launch. EA App may intercept launch; authentication required before game appears.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "d198ebbd76e0432ba0e2ae7f4e3dcdab",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "32bf9415b72948d887599706eca2b6d9",
-      "name": "STAR WARS Jedi: Fallen Order™",
+      "name": "STAR WARS Jedi: Fallen Order\u2122",
       "launcher": "ea",
       "source": "ea",
       "exe_path": "",
@@ -972,11 +1236,16 @@
       "notes": "EA App URI launch. EA App may intercept launch; authentication required before game appears.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "32bf9415b72948d887599706eca2b6d9",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "bfd7702454b94740968b791ec951d84f",
-      "name": "Need for Speed™ Unbound",
+      "name": "Need for Speed\u2122 Unbound",
       "launcher": "ea",
       "source": "ea",
       "exe_path": "",
@@ -990,11 +1259,16 @@
       "notes": "EA App URI launch. EA App may intercept launch; authentication required before game appears.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "bfd7702454b94740968b791ec951d84f",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "98bb0f64cb954ef29118f320c407635d",
-      "name": "Mass Effect™ Legendary Edition",
+      "name": "Mass Effect\u2122 Legendary Edition",
       "launcher": "ea",
       "source": "ea",
       "exe_path": "",
@@ -1008,11 +1282,16 @@
       "notes": "EA App URI launch. EA App may intercept launch; authentication required before game appears.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "98bb0f64cb954ef29118f320c407635d",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "21d27e906f9c4d2589a68efe6d89582e",
-      "name": "Battlefield 3™ Limited Edition",
+      "name": "Battlefield 3\u2122 Limited Edition",
       "launcher": "ea",
       "source": "ea",
       "exe_path": "",
@@ -1026,10 +1305,15 @@
       "notes": "EA App URI launch. EA App may intercept launch; authentication required before game appears.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "21d27e906f9c4d2589a68efe6d89582e",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "eadfff0fd920485c99bfa2ca9e402901",
       "name": "Far Cry Primal",
       "launcher": "ubisoft",
       "source": "ubisoft",
@@ -1044,10 +1328,15 @@
       "notes": "Ubisoft Connect AppID 2010",
       "origin": "auto",
       "last_result": "TIMEOUT",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "eadfff0fd920485c99bfa2ca9e402901",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "fe00209ac44c4f7383e63ae2e34cc842",
       "name": "The Crew 2",
       "launcher": "ubisoft",
       "source": "ubisoft",
@@ -1062,10 +1351,15 @@
       "notes": "Ubisoft Connect AppID 2855",
       "origin": "auto",
       "last_result": "TIMEOUT",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "fe00209ac44c4f7383e63ae2e34cc842",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "25302424f94f46d0b93ad306d4493cea",
       "name": "Assassin's Creed Origins",
       "launcher": "ubisoft",
       "source": "ubisoft",
@@ -1080,10 +1374,15 @@
       "notes": "Ubisoft Connect AppID 3539",
       "origin": "auto",
       "last_result": "TIMEOUT",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "25302424f94f46d0b93ad306d4493cea",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "f5dd4a888465480e8758ad6726787bec",
       "name": "Assassin's Creed Odyssey",
       "launcher": "ubisoft",
       "source": "ubisoft",
@@ -1098,10 +1397,15 @@
       "notes": "Ubisoft Connect AppID 5059",
       "origin": "auto",
       "last_result": "FAIL",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "f5dd4a888465480e8758ad6726787bec",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "352b89849eba4890a8150ccf4002ec50",
       "name": "ForHonor",
       "launcher": "ubisoft",
       "source": "ubisoft",
@@ -1116,10 +1420,15 @@
       "notes": "Ubisoft Connect AppID 569",
       "origin": "auto",
       "last_result": "FAIL",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "352b89849eba4890a8150ccf4002ec50",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "1220f221122c47a2a7e355e56e8eb0a7",
       "name": "AMD Software",
       "launcher": "xbox",
       "source": "xbox",
@@ -1134,10 +1443,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "1220f221122c47a2a7e355e56e8eb0a7",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "7b95b57e612849c9aa1fcf8d00cf0809",
       "name": "Armoury Crate SE",
       "launcher": "xbox",
       "source": "xbox",
@@ -1152,10 +1466,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "7b95b57e612849c9aa1fcf8d00cf0809",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "baaeab327adc4bc984d476d93ded00c2",
       "name": "Beast of Reincarnation",
       "launcher": "xbox",
       "source": "xbox",
@@ -1170,10 +1489,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "baaeab327adc4bc984d476d93ded00c2",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "8eeae653511f48fdb1b094018b02d63d",
       "name": "Calculator",
       "launcher": "xbox",
       "source": "xbox",
@@ -1188,10 +1512,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "8eeae653511f48fdb1b094018b02d63d",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "b59ad5bc609d45d2ae7af2617fdea0af",
       "name": "Clair Obscur: Expedition 33",
       "launcher": "xbox",
       "source": "xbox",
@@ -1206,10 +1535,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "b59ad5bc609d45d2ae7af2617fdea0af",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "68a9caab027042dfa07601ea3b97f020",
       "name": "Click to Do",
       "launcher": "xbox",
       "source": "xbox",
@@ -1224,10 +1558,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "68a9caab027042dfa07601ea3b97f020",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "9852af9430fd43af963337274510830f",
       "name": "Clock",
       "launcher": "xbox",
       "source": "xbox",
@@ -1242,10 +1581,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "9852af9430fd43af963337274510830f",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "19fe1acd625b4c2ea0589d8d1aa26466",
       "name": "Copilot",
       "launcher": "xbox",
       "source": "xbox",
@@ -1260,10 +1604,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "19fe1acd625b4c2ea0589d8d1aa26466",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "c50380a3b49245dd819a0d6421afea2a",
       "name": "DEATH STRANDING DIRECTOR'S CUT",
       "launcher": "xbox",
       "source": "xbox",
@@ -1278,10 +1627,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "c50380a3b49245dd819a0d6421afea2a",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "c7dd945604584d8a9943f131744758cd",
       "name": "Dolby Access",
       "launcher": "xbox",
       "source": "xbox",
@@ -1296,10 +1650,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "c7dd945604584d8a9943f131744758cd",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "53bf4767d0524bb5b5aad0ef84c84387",
       "name": "DOOM + DOOM II",
       "launcher": "xbox",
       "source": "xbox",
@@ -1314,10 +1673,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "53bf4767d0524bb5b5aad0ef84c84387",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "8b1ead2577e546469d5579268ccec994",
       "name": "DOOM: The Dark Ages",
       "launcher": "xbox",
       "source": "xbox",
@@ -1332,10 +1696,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "8b1ead2577e546469d5579268ccec994",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "6e0dc919b3474921bb3ec8506d514325",
       "name": "DREDGE",
       "launcher": "xbox",
       "source": "xbox",
@@ -1350,10 +1719,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "6e0dc919b3474921bb3ec8506d514325",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "5b7bfb7ca20d49f3812191af84f44108",
       "name": "Forza Horizon 6",
       "launcher": "xbox",
       "source": "xbox",
@@ -1368,10 +1742,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "5b7bfb7ca20d49f3812191af84f44108",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "80c775575335406fbde68fcb96650870",
       "name": "Game Bar",
       "launcher": "xbox",
       "source": "xbox",
@@ -1386,10 +1765,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "80c775575335406fbde68fcb96650870",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "53768c84a9764dce93823b1dd982f934",
       "name": "Get Started",
       "launcher": "xbox",
       "source": "xbox",
@@ -1404,10 +1788,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "53768c84a9764dce93823b1dd982f934",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "b1487f32b931453fb845c393872439db",
       "name": "High on Life",
       "launcher": "xbox",
       "source": "xbox",
@@ -1422,10 +1811,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "b1487f32b931453fb845c393872439db",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "3abf323d60714f419d3ff1002bd3d3a7",
       "name": "Hogwarts Legacy",
       "launcher": "xbox",
       "source": "xbox",
@@ -1440,10 +1834,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "3abf323d60714f419d3ff1002bd3d3a7",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "f8e735ccc73b4451b05981703c9499dd",
       "name": "Indiana Jones and the Great Circle",
       "launcher": "xbox",
       "source": "xbox",
@@ -1458,10 +1857,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "f8e735ccc73b4451b05981703c9499dd",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "7c30c9ccb2c44e9d9225d319f0c445bc",
       "name": "Kingdom Come: Deliverance II",
       "launcher": "xbox",
       "source": "xbox",
@@ -1476,10 +1880,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "7c30c9ccb2c44e9d9225d319f0c445bc",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "26683ac5f4624e88b3ffda979468602c",
       "name": "Media Player",
       "launcher": "xbox",
       "source": "xbox",
@@ -1494,10 +1903,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "26683ac5f4624e88b3ffda979468602c",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "db1876ad98404e0ca916d9ee73621025",
       "name": "MyASUS",
       "launcher": "xbox",
       "source": "xbox",
@@ -1512,10 +1926,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "db1876ad98404e0ca916d9ee73621025",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "a275ea90221343d3a233506cc7ead096",
       "name": "Notepad",
       "launcher": "xbox",
       "source": "xbox",
@@ -1530,10 +1949,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "a275ea90221343d3a233506cc7ead096",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "e13e7b91e3b94a3dabdd5209228f3f3e",
       "name": "Paint",
       "launcher": "xbox",
       "source": "xbox",
@@ -1548,10 +1972,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "e13e7b91e3b94a3dabdd5209228f3f3e",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "f034cdc7983a48d089342d87c2113dca",
       "name": "Photos",
       "launcher": "xbox",
       "source": "xbox",
@@ -1566,10 +1995,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "f034cdc7983a48d089342d87c2113dca",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "25f74e5eeae1438f8d3a96d255489659",
       "name": "Quantum Break",
       "launcher": "xbox",
       "source": "xbox",
@@ -1584,10 +2018,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "25f74e5eeae1438f8d3a96d255489659",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "687cf5a824164647ab314b6735c19bc0",
       "name": "Quick Assist",
       "launcher": "xbox",
       "source": "xbox",
@@ -1602,10 +2041,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "687cf5a824164647ab314b6735c19bc0",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "a77218559ef141c0b7783f0d61e717c0",
       "name": "Realtek Audio Console",
       "launcher": "xbox",
       "source": "xbox",
@@ -1620,10 +2064,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "a77218559ef141c0b7783f0d61e717c0",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "7cd08369adfa44489b67a8dd959e39a4",
       "name": "Recall (preview)",
       "launcher": "xbox",
       "source": "xbox",
@@ -1638,10 +2087,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "7cd08369adfa44489b67a8dd959e39a4",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "2f4d52bce76b4fe7abbfa1e604fbf6c2",
       "name": "Settings",
       "launcher": "xbox",
       "source": "xbox",
@@ -1656,10 +2110,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "2f4d52bce76b4fe7abbfa1e604fbf6c2",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "c47471c4f74443899dee500b9c6b7ee5",
       "name": "Snipping Tool",
       "launcher": "xbox",
       "source": "xbox",
@@ -1674,10 +2133,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "c47471c4f74443899dee500b9c6b7ee5",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "ac37198cdfc04c25b435d0d1e0e029f6",
       "name": "Star Trucker",
       "launcher": "xbox",
       "source": "xbox",
@@ -1692,10 +2156,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "ac37198cdfc04c25b435d0d1e0e029f6",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "26e7d58a65f4462ea0c9e37010b88a56",
       "name": "Sticky Notes",
       "launcher": "xbox",
       "source": "xbox",
@@ -1710,10 +2179,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "26e7d58a65f4462ea0c9e37010b88a56",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "f7f994c6c66f4377893544ae7bc400df",
       "name": "Terminal",
       "launcher": "xbox",
       "source": "xbox",
@@ -1728,10 +2202,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "f7f994c6c66f4377893544ae7bc400df",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "7e0d12b9805c4f12a616bc85dee28fdf",
       "name": "Weather",
       "launcher": "xbox",
       "source": "xbox",
@@ -1746,10 +2225,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "7e0d12b9805c4f12a616bc85dee28fdf",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "ca74f447676241699cfba7aba0f4d4d2",
       "name": "Windows Back up",
       "launcher": "xbox",
       "source": "xbox",
@@ -1764,10 +2248,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "ca74f447676241699cfba7aba0f4d4d2",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "193e6ca347ad47f79bee6a60f8922bce",
       "name": "Windows Security",
       "launcher": "xbox",
       "source": "xbox",
@@ -1782,10 +2271,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "193e6ca347ad47f79bee6a60f8922bce",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "76b8ca6a73da47b1b4873ce4f1e28a8b",
       "name": "XBOX",
       "launcher": "xbox",
       "source": "xbox",
@@ -1800,10 +2294,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "76b8ca6a73da47b1b4873ce4f1e28a8b",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "d1f198a7d0d443e5ad94907aec005637",
       "name": "Cyberpunk 2077: Phantom Liberty",
       "launcher": "gog",
       "source": "gog",
@@ -1818,10 +2317,15 @@
       "notes": "GOG game 1256837418",
       "origin": "auto",
       "last_result": "PASS",
-      "last_ready": "2026-09-23T21:30:40.830655+00:00"
+      "last_ready": "2026-09-23T21:30:40.830655+00:00",
+      "id": "d1f198a7d0d443e5ad94907aec005637",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "e63aa8761186472393f1a840545a64ff",
       "name": "Cyberpunk 2077",
       "launcher": "gog",
       "source": "gog",
@@ -1836,10 +2340,15 @@
       "notes": "GOG game 1423049311",
       "origin": "auto",
       "last_result": "FAIL",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "e63aa8761186472393f1a840545a64ff",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "0b6c10a25b314f9098f8aebe034480bf",
       "name": "Bitwarden",
       "launcher": "other",
       "source": "shortcuts",
@@ -1854,10 +2363,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "0b6c10a25b314f9098f8aebe034480bf",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "ab8671dfe5154f8bb8a4c69122e95747",
       "name": "Microsoft Edge",
       "launcher": "other",
       "source": "shortcuts",
@@ -1872,10 +2386,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "ab8671dfe5154f8bb8a4c69122e95747",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "f11f816590c245eeb1c515d885095dec",
       "name": "Play 007 First Light",
       "launcher": "other",
       "source": "shortcuts",
@@ -1890,10 +2409,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "f11f816590c245eeb1c515d885095dec",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "8bc6b152cbc64cfb884fb18ab86a66e8",
       "name": "Remote Desktop Connection",
       "launcher": "other",
       "source": "shortcuts",
@@ -1908,10 +2432,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "8bc6b152cbc64cfb884fb18ab86a66e8",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "87e123c04f4b4066b9fc05f14aaa7c17",
       "name": "Steps Recorder",
       "launcher": "other",
       "source": "shortcuts",
@@ -1926,10 +2455,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "87e123c04f4b4066b9fc05f14aaa7c17",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "6ebdc5fe205e4a3ca03045b564988a3d",
       "name": "Windows Media Player Legacy",
       "launcher": "other",
       "source": "shortcuts",
@@ -1944,10 +2478,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "6ebdc5fe205e4a3ca03045b564988a3d",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "25edcc211a0a4e89b01e14f3d035a8fa",
       "name": "dfrgui",
       "launcher": "other",
       "source": "shortcuts",
@@ -1962,10 +2501,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "25edcc211a0a4e89b01e14f3d035a8fa",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "3bdc48482ad84d6190c8e8e81540561f",
       "name": "iSCSI Initiator",
       "launcher": "other",
       "source": "shortcuts",
@@ -1980,10 +2524,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "3bdc48482ad84d6190c8e8e81540561f",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "ed93e66542b54a39bf95b71bccbcf81f",
       "name": "ODBC Data Sources (32-bit)",
       "launcher": "other",
       "source": "shortcuts",
@@ -1998,10 +2547,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "ed93e66542b54a39bf95b71bccbcf81f",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "b01e6e7b3cd34205a7b1eda8ea7d37c9",
       "name": "ODBC Data Sources (64-bit)",
       "launcher": "other",
       "source": "shortcuts",
@@ -2016,10 +2570,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "b01e6e7b3cd34205a7b1eda8ea7d37c9",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "8d9f82a32ebe45b1a1d7c42016df23aa",
       "name": "RecoveryDrive",
       "launcher": "other",
       "source": "shortcuts",
@@ -2034,10 +2593,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "8d9f82a32ebe45b1a1d7c42016df23aa",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "9fc13b42e72c4990bf62352f37e6b92b",
       "name": "Resource Monitor",
       "launcher": "other",
       "source": "shortcuts",
@@ -2052,10 +2616,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "9fc13b42e72c4990bf62352f37e6b92b",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "9087a1e2557546d98b19aab12100d96f",
       "name": "System Information",
       "launcher": "other",
       "source": "shortcuts",
@@ -2070,10 +2639,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "9087a1e2557546d98b19aab12100d96f",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "c352c768da4b40edaab1bc02a3b0fa2a",
       "name": "Play Dispatch",
       "launcher": "other",
       "source": "shortcuts",
@@ -2088,10 +2662,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "c352c768da4b40edaab1bc02a3b0fa2a",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "398544ca7e424d18b16db448fa1ed80f",
       "name": "Play God of War Ragnarok",
       "launcher": "other",
       "source": "shortcuts",
@@ -2106,10 +2685,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "398544ca7e424d18b16db448fa1ed80f",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "81695ce89a624e7cbf7b63a58de8042f",
       "name": "Task Manager",
       "launcher": "other",
       "source": "shortcuts",
@@ -2124,10 +2708,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "81695ce89a624e7cbf7b63a58de8042f",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "62b8680dad314c4787ea33c7d708ae9c",
       "name": "Windows PowerShell ISE (x86)",
       "launcher": "other",
       "source": "shortcuts",
@@ -2142,10 +2731,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "62b8680dad314c4787ea33c7d708ae9c",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "94371204b2884bca88e42d0bb53bca78",
       "name": "Windows PowerShell ISE",
       "launcher": "other",
       "source": "shortcuts",
@@ -2160,10 +2754,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "94371204b2884bca88e42d0bb53bca78",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "28338404eeca45d1bb37a716e1b8745d",
       "name": "Character Map",
       "launcher": "other",
       "source": "shortcuts",
@@ -2178,10 +2777,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "28338404eeca45d1bb37a716e1b8745d",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "5630a431d672436fb033eba8b587dd47",
       "name": "OneDrive",
       "launcher": "other",
       "source": "shortcuts",
@@ -2196,10 +2800,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "5630a431d672436fb033eba8b587dd47",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "c59b656af30b4fa68842eafeb0d220f5",
       "name": "LiveCaptions",
       "launcher": "other",
       "source": "shortcuts",
@@ -2214,10 +2823,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "c59b656af30b4fa68842eafeb0d220f5",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "444a915b020f4747a70a10571e4fc7e8",
       "name": "Magnify",
       "launcher": "other",
       "source": "shortcuts",
@@ -2232,10 +2846,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "444a915b020f4747a70a10571e4fc7e8",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "2a3a63a472b4454bac4e244ece602e21",
       "name": "Narrator",
       "launcher": "other",
       "source": "shortcuts",
@@ -2250,10 +2869,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "2a3a63a472b4454bac4e244ece602e21",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "2e9cdd17655242e693adb8a817c0aeb1",
       "name": "On-Screen Keyboard",
       "launcher": "other",
       "source": "shortcuts",
@@ -2268,10 +2892,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "2e9cdd17655242e693adb8a817c0aeb1",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "a7c48d3c49934ba9a30204272bf590b3",
       "name": "Command Prompt",
       "launcher": "other",
       "source": "shortcuts",
@@ -2286,10 +2915,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "a7c48d3c49934ba9a30204272bf590b3",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "8fbea5e7d1104798b26d128e1b86a7be",
       "name": "Windows PowerShell (x86)",
       "launcher": "other",
       "source": "shortcuts",
@@ -2304,10 +2938,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "8fbea5e7d1104798b26d128e1b86a7be",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "b9e68d2a6eec4d608c69db57ac9b6495",
       "name": "Windows PowerShell",
       "launcher": "other",
       "source": "shortcuts",
@@ -2322,10 +2961,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "b9e68d2a6eec4d608c69db57ac9b6495",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "c13cde51c69f4ba4951cc99101950afc",
       "name": "AC Black Flag Resynced",
       "launcher": "other",
       "source": "shortcuts",
@@ -2340,10 +2984,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "c13cde51c69f4ba4951cc99101950afc",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "a3b9686fc337404488821bb9adf18b68",
       "name": "Battlefield 3",
       "launcher": "ea",
       "source": "shortcuts",
@@ -2358,10 +3007,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "a3b9686fc337404488821bb9adf18b68",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "1e0386b4099049aa9b8165eec8f1d6a6",
       "name": "Immortals of Aveum",
       "launcher": "ea",
       "source": "shortcuts",
@@ -2376,10 +3030,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "1e0386b4099049aa9b8165eec8f1d6a6",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "c3185c4ee4984012b4cd8c85febaed7d",
       "name": "Play Red Dead Redemption 2",
       "launcher": "other",
       "source": "shortcuts",
@@ -2394,16 +3053,21 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "c3185c4ee4984012b4cd8c85febaed7d",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "f5b41630de814349951a726563a13607",
-      "name": "STAR WARS Jedi - Fallen Order™",
+      "name": "STAR WARS Jedi - Fallen Order\u2122",
       "launcher": "ea",
       "source": "shortcuts",
       "exe_path": "C:\\Program Files\\EA Games\\Jedi Fallen Order\\SwGame\\Binaries\\Win64\\starwarsjedifallenorder.exe",
       "launch_method": "shortcut",
-      "launch_target": "C:\\Users\\SHAHZ\\Desktop\\New folder\\STAR WARS Jedi - Fallen Order™.lnk",
+      "launch_target": "C:\\Users\\SHAHZ\\Desktop\\New folder\\STAR WARS Jedi - Fallen Order\u2122.lnk",
       "expected_process": "starwarsjedifallenorder.exe",
       "working_dir": "C:\\Program Files\\EA Games\\Jedi Fallen Order\\SwGame\\Binaries\\Win64",
       "mode": "standard",
@@ -2412,10 +3076,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "f5b41630de814349951a726563a13607",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "b1d91e4120084b83b2aed1fdaa4270cf",
       "name": "STAR WARS Zero Company",
       "launcher": "other",
       "source": "shortcuts",
@@ -2430,10 +3099,15 @@
       "notes": "Discovered from Start-menu / Desktop shortcut.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "b1d91e4120084b83b2aed1fdaa4270cf",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "a9a9a980bb7c4f9990cc4b4d20a41c88",
       "name": "ASUS",
       "launcher": "other",
       "source": "common",
@@ -2448,10 +3122,15 @@
       "notes": "Found in common directory: C:\\Program Files",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "a9a9a980bb7c4f9990cc4b4d20a41c88",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "ac4d2dd1a6ff46e9b07bb9adccb2fbd9",
       "name": "Common Files",
       "launcher": "other",
       "source": "common",
@@ -2466,10 +3145,15 @@
       "notes": "Found in common directory: C:\\Program Files",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "ac4d2dd1a6ff46e9b07bb9adccb2fbd9",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "db328e268b46464ba89a7ceb753cc8fa",
       "name": "dotnet",
       "launcher": "other",
       "source": "common",
@@ -2484,10 +3168,15 @@
       "notes": "Found in common directory: C:\\Program Files",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "db328e268b46464ba89a7ceb753cc8fa",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "4c3e05ad5f8d4e8288cda8cde1be6f56",
       "name": "EA Games",
       "launcher": "ea",
       "source": "common",
@@ -2502,10 +3191,15 @@
       "notes": "Found in common directory: C:\\Program Files",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "4c3e05ad5f8d4e8288cda8cde1be6f56",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "0f7ccc0fb6354c5482125b484295ad09",
       "name": "Electronic Arts",
       "launcher": "ea",
       "source": "common",
@@ -2520,10 +3214,15 @@
       "notes": "Found in common directory: C:\\Program Files",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "0f7ccc0fb6354c5482125b484295ad09",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "b174901b53eb4cfab14d68a867459397",
       "name": "Internet Explorer",
       "launcher": "other",
       "source": "common",
@@ -2538,10 +3237,15 @@
       "notes": "Found in common directory: C:\\Program Files",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "b174901b53eb4cfab14d68a867459397",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "130082b5619e4ce49881c88ace8f389d",
       "name": "Microsoft GameInput",
       "launcher": "other",
       "source": "common",
@@ -2556,10 +3260,15 @@
       "notes": "Found in common directory: C:\\Program Files",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "130082b5619e4ce49881c88ace8f389d",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "76d3b57853b141f7899114543b63ce34",
       "name": "Windows Defender",
       "launcher": "other",
       "source": "common",
@@ -2574,10 +3283,15 @@
       "notes": "Found in common directory: C:\\Program Files",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "76d3b57853b141f7899114543b63ce34",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "c5dac7e16b084e2db3125bc3f8d0c705",
       "name": "Windows Mail",
       "launcher": "other",
       "source": "common",
@@ -2592,10 +3306,15 @@
       "notes": "Found in common directory: C:\\Program Files",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "c5dac7e16b084e2db3125bc3f8d0c705",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "181bf43e28374e0caab79d5b2f3a369d",
       "name": "Windows Media Player",
       "launcher": "other",
       "source": "common",
@@ -2610,10 +3329,15 @@
       "notes": "Found in common directory: C:\\Program Files",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "181bf43e28374e0caab79d5b2f3a369d",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "4fbb040e96834cceac1d0f496340fe53",
       "name": "Windows Photo Viewer",
       "launcher": "other",
       "source": "common",
@@ -2628,10 +3352,15 @@
       "notes": "Found in common directory: C:\\Program Files",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "4fbb040e96834cceac1d0f496340fe53",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "3452b14b097a4cb9a088173546c2ea7e",
       "name": "LightingService",
       "launcher": "other",
       "source": "common",
@@ -2646,10 +3375,15 @@
       "notes": "Found in common directory: C:\\Program Files (x86)",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "3452b14b097a4cb9a088173546c2ea7e",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "36723fa4b4234da1b5fce5858e809330",
       "name": "Microsoft",
       "launcher": "other",
       "source": "common",
@@ -2664,10 +3398,15 @@
       "notes": "Found in common directory: C:\\Program Files (x86)",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "36723fa4b4234da1b5fce5858e809330",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "905685a5d2514412a37877da67023282",
       "name": "Clair Obscur- Expedition 33",
       "launcher": "xbox",
       "source": "common",
@@ -2682,10 +3421,15 @@
       "notes": "Found in common directory: C:\\XboxGames",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "905685a5d2514412a37877da67023282",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "89e1351c9d6843ccafb12a1076b1a18a",
       "name": "DOOM- The Dark Ages",
       "launcher": "xbox",
       "source": "common",
@@ -2700,10 +3444,15 @@
       "notes": "Found in common directory: C:\\XboxGames",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "89e1351c9d6843ccafb12a1076b1a18a",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "f7b0c45405314a76bc714bafd8f4a7bd",
       "name": "DSDC",
       "launcher": "xbox",
       "source": "common",
@@ -2718,10 +3467,15 @@
       "notes": "Found in common directory: C:\\XboxGames",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "f7b0c45405314a76bc714bafd8f4a7bd",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "bf8a4eaad59248d8a6c7946e46ab9c33",
       "name": "Kingdom Come- Deliverance II",
       "launcher": "xbox",
       "source": "common",
@@ -2736,11 +3490,16 @@
       "notes": "Found in common directory: C:\\XboxGames",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "bf8a4eaad59248d8a6c7946e46ab9c33",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "e0dbfc79700b41479f53bbab8ffff16b",
-      "name": "Need for Speed™ Hot Pursuit Remastered",
+      "name": "Need for Speed\u2122 Hot Pursuit Remastered",
       "launcher": "ea",
       "source": "ea",
       "exe_path": "",
@@ -2754,10 +3513,15 @@
       "notes": "EA App URI launch. EA App may intercept launch; authentication required before game appears.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "e0dbfc79700b41479f53bbab8ffff16b",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "b4caa27145c84d3d9fae27ab6b67c84a",
       "name": "Star Wars Outlaws",
       "launcher": "ubisoft",
       "source": "ubisoft",
@@ -2772,10 +3536,15 @@
       "notes": "Ubisoft Connect AppID 17903",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "b4caa27145c84d3d9fae27ab6b67c84a",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "d510e4b769e3412aa8d2a36426395048",
       "name": "AFOP",
       "launcher": "ubisoft",
       "source": "ubisoft",
@@ -2790,10 +3559,15 @@
       "notes": "Ubisoft Connect AppID 4740",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "d510e4b769e3412aa8d2a36426395048",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "51a7c0efb419435ba40cdf6470f0aea7",
       "name": "Dune: Awakening",
       "launcher": "xbox",
       "source": "xbox",
@@ -2808,10 +3582,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "51a7c0efb419435ba40cdf6470f0aea7",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "a43910a118654a85b6b07fc8c4e588f5",
       "name": "Mistfall Hunter",
       "launcher": "xbox",
       "source": "xbox",
@@ -2826,10 +3605,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "a43910a118654a85b6b07fc8c4e588f5",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "c2d5f0281e254f53bf394d100bb639f4",
       "name": "PenDriverPro",
       "launcher": "xbox",
       "source": "xbox",
@@ -2844,10 +3628,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "c2d5f0281e254f53bf394d100bb639f4",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "330f28762ebb4003a8fd3ac6826453a7",
       "name": "Retro Classics",
       "launcher": "xbox",
       "source": "xbox",
@@ -2862,10 +3651,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "330f28762ebb4003a8fd3ac6826453a7",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "48dfbc203e654b7ba16778601f6d0386",
       "name": "Speedrunners 2: King of Speed",
       "launcher": "xbox",
       "source": "xbox",
@@ -2880,10 +3674,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "48dfbc203e654b7ba16778601f6d0386",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "855b3e8900fc48db9b9df32cebcdd12e",
       "name": "Wheel World",
       "launcher": "xbox",
       "source": "xbox",
@@ -2898,10 +3697,15 @@
       "notes": "Xbox Store apps run in protected containers and cannot be automatically verified. Test manually before travel.",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "855b3e8900fc48db9b9df32cebcdd12e",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     },
     {
-      "id": "9722dabc32b84f83a18885726b6edd6a",
       "name": "Dune- Awakening",
       "launcher": "xbox",
       "source": "common",
@@ -2916,7 +3720,13 @@
       "notes": "Found in common directory: C:\\XboxGames",
       "origin": "auto",
       "last_result": "",
-      "last_ready": ""
+      "last_ready": "",
+      "id": "9722dabc32b84f83a18885726b6edd6a",
+      "install_dir": "",
+      "app_user_model_id": "",
+      "package_family_name": "",
+      "alt_processes": [],
+      "verification": "auto"
     }
   ]
 }

@@ -28,7 +28,11 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Sequence
 
-from . import __version__, discovery, history, launch_tester as lt, readiness
+from . import (
+    __version__, classification, discovery, doctor as doctor_mod, environment,
+    history, identity as identity_mod, launch_tester as lt, launchers, preparation,
+    prepare_run, readiness,
+)
 from .apppaths import data_file
 from .library import (
     GameEntry, LIBRARY_FILE, SCAN_FOLDERS_FILE, LAUNCHERS, export_games,
@@ -83,6 +87,10 @@ def _progress(message: str) -> None:
 # --------------------------------------------------------------------------
 
 def cmd_scan(args) -> int:
+    if args.explain:
+        entries = _load(args)
+        print(classification.classification_report(entries))
+        return 0
     folders = load_scan_folders(data_file(SCAN_FOLDERS_FILE))
     print("Scanning for installed games…", file=sys.stderr)
     found = discovery.auto_scan(sources=args.sources or None,
@@ -91,8 +99,12 @@ def cmd_scan(args) -> int:
     existing = _load(args)
     merged, added, updated = merge_library_updates(existing, found)
     save_library(merged, _library_path(args))
-    print(f"Discovered {len(found)} games: {added} new, {updated} updated, "
-          f"{len(merged)} in library.")
+    games, non_games = classification.split_games(merged)
+    identities = identity_mod.build_identities(games)
+    print(f"Discovered {len(found)} entries: {added} new, {updated} updated.")
+    print(f"Library: {len(merged)} entries \u2192 {len(games)} games "
+          f"({len(identities)} distinct), {len(non_games)} non-games excluded.")
+    print("Run 'travelready scan --explain' to see why anything was excluded.")
     return 0
 
 
@@ -173,23 +185,139 @@ def cmd_test(args) -> int:
     return _run_tests(entries, args, args.mode)
 
 
-def cmd_prepare(args) -> int:
-    entries = _filtered(_load(args), args)
-    targets, skipped = readiness.prepare_targets(
-        entries, args.stale_days, reverify_ready=args.reverify)
-    if skipped:
-        print(f"Skipped {len(skipped)} game(s) that cannot be closed safely:",
+def _identities(args, entries=None):
+    """The library as game identities, merged and classified."""
+    entries = entries if entries is not None else _filtered(_load(args), args)
+    games, _non_games = classification.split_games(entries)
+    return identity_mod.build_identities(games)
+
+
+def _environment(args):
+    return environment.current(check_network=not getattr(args, "offline", False))
+
+
+def cmd_doctor(args) -> int:
+    """Diagnose the application, the environment, the library and the source."""
+    report = doctor_mod.run_doctor(
+        library_path=_library_path(args),
+        check_network=not args.offline)
+    print(report.describe())
+    if args.fix:
+        repairs = doctor_mod.apply_fixes(report)
+        print()
+        if repairs:
+            print("Repaired:")
+            for line in repairs:
+                print(f"  \u2713 {line}")
+        else:
+            print("Nothing to repair.")
+        print("\nAnything involving credentials, DRM, anti-cheat or account "
+              "state is never repaired automatically \u2014 follow the "
+              "instructions above instead.")
+    return 0 if report.healthy else 1
+
+
+def cmd_ready(args) -> int:
+    """Per-game travel readiness, with the reason for every verdict."""
+    identities = _identities(args)
+    if not identities:
+        print("No games in the library. Run 'travelready scan' first.",
               file=sys.stderr)
-        for entry in skipped:
-            print(f"  - {entry.name}: {readiness.failure_hint(entry)}", file=sys.stderr)
-    if not targets:
-        print("Nothing to prepare — everything is already READY.")
+        return 2
+    env = _environment(args)
+    resolver = _resolver(args)
+    if args.game:
+        found = identity_mod.find_identity(identities, args.game)
+        if found is None:
+            matches = [i for i in identities
+                       if args.game.strip().lower() in i.canonical_title.lower()]
+            if len(matches) != 1:
+                print(f"'{args.game}' matched {len(matches)} games.", file=sys.stderr)
+                for i in matches[:10]:
+                    print(f"  - {i.canonical_title}", file=sys.stderr)
+                return 2
+            found = matches[0]
+        print(preparation.assess(found, env=env, resolver=resolver).describe())
         return 0
-    print(f"Preparing {len(targets)} game(s) with a "
-          f"{args.smoke_duration or lt.SMOKE_DEFAULT_DURATION:.0f}s smoke test.",
-          file=sys.stderr)
-    args.cleanup = True
-    return _run_tests(targets, args, lt.MODE_SMOKE)
+
+    reports = preparation.assess_all(identities, env=env, resolver=resolver)
+    counts = preparation.summarise(reports)
+    print(f"{'GAME':<40}{'LAUNCHER':<11}{'READINESS':<22}SETTINGS")
+    print("-" * 88)
+    for report in sorted(reports, key=lambda r: (
+            preparation.READINESS_ORDER.index(r.readiness), r.game.lower())):
+        if args.only and report.readiness != args.only:
+            continue
+        settings = {"PASS": "profile", "WARN": "none", "UNKNOWN": "not checked",
+                    "NOT_APPLICABLE": "-"}.get(report.settings_state, "-")
+        print(f"{report.game[:39]:<40}{report.launcher:<11}"
+              f"{report.readiness.replace('_', ' '):<22}{settings}")
+    print("-" * 88)
+    print("  ".join(f"{v.replace('_', ' ')}: {counts[v]}"
+                    for v in preparation.READINESS_ORDER if counts.get(v)))
+    return 0
+
+
+def cmd_launchers(args) -> int:
+    """What each launcher supports, and whether it is installed."""
+    env = _environment(args)
+    print(launchers.capability_matrix())
+    print()
+    print("FULL = reliable \u00b7 PARTIAL = works when a precondition holds \u00b7 "
+          "NONE = cannot \u00b7 UNKNOWN = not established")
+    if env.windows:
+        print()
+        print("Installed on this machine:")
+        for key in ("steam", "xbox", "ea", "epic", "ubisoft", "gog", "battlenet"):
+            adapter = launchers.ADAPTERS[key]
+            present = adapter.launcher_installed()
+            mark = {True: "yes", False: "no", None: "unknown"}[present]
+            print(f"  {adapter.display_name:<24}{mark}")
+    else:
+        print("\nLauncher detection needs Windows.")
+    return 0
+
+
+def cmd_prepare(args) -> int:
+    """The primary workflow: prepare the library for offline play."""
+    identities = _identities(args)
+    if not identities:
+        print("No games in the library. Run 'travelready scan' first.",
+              file=sys.stderr)
+        return 2
+    env = _environment(args)
+    resolver = _resolver(args)
+    options = prepare_run.PrepareOptions(
+        launch=not args.no_launch,
+        cleanup=not args.no_cleanup,
+        smoke_duration=args.smoke_duration,
+        reverify_ready=args.reverify,
+        stale_days=args.stale_days,
+        resume=args.resume,
+    )
+    if args.resume:
+        existing = prepare_run.load_run()
+        if existing is None or not existing.resumable:
+            print("No interrupted run to resume; starting a fresh one.",
+                  file=sys.stderr)
+            options.resume = False
+
+    if options.launch and not env.windows:
+        print("Launching needs Windows. Assessing without launching instead.",
+              file=sys.stderr)
+        options.launch = False
+
+    run = prepare_run.run_preparation(
+        identities, options, env=env, resolver=resolver,
+        on_progress=_progress if args.verbose else None)
+
+    entries = _load(args)
+    by_id = {e.id: e for i in identities for e in i.entries}
+    save_library([by_id.get(e.id, e) for e in entries], _library_path(args))
+
+    print()
+    print(prepare_run.render_run_report(run, identities, resolver=resolver))
+    return 0 if run.status == prepare_run.STATUS_COMPLETE else 1
 
 
 def cmd_report(args) -> int:
@@ -553,7 +681,29 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("scan", help="discover installed games")
     p.add_argument("--sources", nargs="*", choices=list(discovery.AUTO_SCAN_SOURCES))
+    p.add_argument("--explain", action="store_true",
+                   help="show how each library entry was classified, and why")
     p.set_defaults(func=cmd_scan)
+
+    p = sub.add_parser("doctor", help="diagnose the application and environment")
+    p.add_argument("--fix", action="store_true",
+                   help="repair TravelReady's own local state where it is safe to")
+    p.add_argument("--offline", action="store_true", help="skip the network check")
+    p.set_defaults(func=cmd_doctor)
+
+    p = sub.add_parser("ready", help="per-game travel readiness, with reasons")
+    add_filters(p)
+    p.add_argument("game", nargs="?", help="one game, for the full check list")
+    p.add_argument("--only", choices=list(preparation.READINESS_ORDER),
+                   help="show only games with this verdict")
+    p.add_argument("--offline", action="store_true")
+    p.add_argument("--mode", choices=list(OPERATING_MODES), default=MODE_BALANCED)
+    p.add_argument("--max-watts", type=int)
+    p.set_defaults(func=cmd_ready)
+
+    p = sub.add_parser("launchers", help="what each launcher supports")
+    p.add_argument("--offline", action="store_true")
+    p.set_defaults(func=cmd_launchers)
 
     p = sub.add_parser("list", help="show the library")
     add_filters(p)
@@ -574,12 +724,21 @@ def build_parser() -> argparse.ArgumentParser:
                    help="never ask for manual confirmation")
     p.set_defaults(func=cmd_test)
 
-    p = sub.add_parser("prepare", help="Prepare for Travel")
+    p = sub.add_parser("prepare", help="prepare the library for offline play")
     add_filters(p)
-    p.add_argument("--stale-days", type=int, default=readiness.DEFAULT_STALE_DAYS)
+    p.add_argument("--resume", action="store_true",
+                   help="continue an interrupted run instead of starting over")
+    p.add_argument("--no-launch", action="store_true",
+                   help="assess only; do not start any game")
+    p.add_argument("--no-cleanup", action="store_true",
+                   help="leave games running after verifying them")
+    p.add_argument("--stale-days", type=int, default=30)
     p.add_argument("--smoke-duration", type=float, default=lt.SMOKE_DEFAULT_DURATION)
-    p.add_argument("--reverify", action="store_true", help="re-test READY games too")
-    p.add_argument("--no-prompt", action="store_true")
+    p.add_argument("--reverify", action="store_true",
+                   help="re-verify games that already passed")
+    p.add_argument("--offline", action="store_true")
+    p.add_argument("--mode", choices=list(OPERATING_MODES), default=MODE_BALANCED)
+    p.add_argument("--max-watts", type=int)
     p.set_defaults(func=cmd_prepare)
 
     p = sub.add_parser("report", help="trip report")
