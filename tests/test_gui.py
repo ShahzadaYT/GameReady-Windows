@@ -84,3 +84,46 @@ def test_settings_panel_reports_a_missing_profile_without_inventing_one(app):
 
 def test_apply_button_stays_disabled_without_a_plan(app):
     assert str(app.apply_button.cget("state")) == "disabled"
+
+
+# -- ROG Ally Life panel -----------------------------------------------------
+
+def test_settings_column_is_present_and_does_not_gate_launch(app):
+    assert "settings" in app.tree["columns"]
+    rows = app.tree.get_children()
+    values = app.tree.item(rows[0], "values")
+    # readiness and settings are separate columns; neither derives from the other
+    assert len(values) == len(app.tree["columns"])
+    assert values[3] in ("Ready", "Review", "Manual", "No profile", "Not checked")
+
+
+def test_source_label_reports_an_empty_cache_honestly(app):
+    text = app.source_label.cget("text")
+    assert "ROG Ally Life" in text
+    assert "0 games" in text and "never synced" in text
+
+
+def test_operating_mode_defaults_to_balanced_and_persists(app):
+    from travelready.optimiser.rogallylife.select import MODE_BALANCED, MODE_BATTERY
+
+    assert app.mode_var.get() == MODE_BALANCED
+    app.mode_var.set(MODE_BATTERY)
+    app._on_mode_changed()
+    assert app.settings.operating_mode == MODE_BATTERY
+    assert app.resolver.mode == MODE_BATTERY
+
+
+def test_view_source_is_disabled_until_a_profile_is_loaded(app):
+    assert str(app.view_source_button.cget("state")) == "disabled"
+
+
+def test_review_with_an_empty_cache_offers_no_profile_and_no_invention(app):
+    rows = app.tree.get_children()
+    app.tree.selection_set(rows[0])
+    app.root.update()
+    app._on_review_settings()
+    app.root.update()
+    text = app.settings_text.get("1.0", "end")
+    assert "NOT FOUND" in text
+    assert "Cached ROG Ally Life games: 0" in text
+    assert str(app.apply_button.cget("state")) == "disabled"

@@ -34,6 +34,15 @@ from .library import (
 from .optimiser import diff as opt_diff
 from .optimiser import profiles as opt_profiles
 from .optimiser import transaction as opt_tx
+from .optimiser.model import TARGET_DEVICE
+from .optimiser.rogallylife import SOURCE_BASE, SOURCE_NAME
+from .optimiser.rogallylife import bridge as ral_bridge
+from .optimiser.rogallylife import sync as ral_sync
+from .optimiser.rogallylife.cache import ProfileCache
+from .optimiser.rogallylife.client import RogAllyLifeClient
+from .optimiser.rogallylife.select import (
+    MODE_BALANCED, MODE_BATTERY, MODE_PERFORMANCE, OPERATING_MODES,
+)
 
 SETTINGS_FILE = "gui_settings.json"
 
@@ -54,6 +63,8 @@ class Settings:
     cleanup_after_test: bool = True
     confirm_manual: bool = True
     scan_folders: List[str] = field(default_factory=list)
+    operating_mode: str = MODE_BALANCED
+    max_watts: int = 0
 
     @classmethod
     def load(cls) -> "Settings":
@@ -83,6 +94,8 @@ class TravelReadyGUI:
         self.iid_to_entry: Dict[str, GameEntry] = {}
         self.profile_store = opt_profiles.ProfileStore.load()
         self.current_plan = None
+        self.source_cache = ProfileCache()
+        self.resolver = self._build_resolver()
 
         root.title(f"TravelReady {__version__}")
         root.geometry("1280x800")
@@ -92,6 +105,12 @@ class TravelReadyGUI:
         self._load_library()
         self.root.after(120, self._poll_ui_queue)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _build_resolver(self) -> ral_bridge.SourceResolver:
+        return ral_bridge.SourceResolver(
+            self.source_cache, target_device=TARGET_DEVICE,
+            mode=self.settings.operating_mode,
+            max_watts=(self.settings.max_watts or None))
 
     # -- chrome ------------------------------------------------------------
 
@@ -154,15 +173,16 @@ class TravelReadyGUI:
 
         left = ttk.Frame(body)
         body.add(left, weight=3)
-        columns = ("launcher", "state", "verify", "last")
+        columns = ("launcher", "state", "verify", "settings", "last")
         self.tree = ttk.Treeview(left, columns=columns, show="tree headings",
                                  selectmode="extended")
         self.tree.heading("#0", text="Game")
         self.tree.column("#0", width=380, minwidth=220)
-        for name, title, width in (("launcher", "Launcher", 110),
-                                   ("state", "Readiness", 120),
-                                   ("verify", "Verified by", 120),
-                                   ("last", "Last checked", 130)):
+        for name, title, width in (("launcher", "Launcher", 100),
+                                   ("state", "Readiness", 110),
+                                   ("verify", "Verified by", 110),
+                                   ("settings", "Settings", 100),
+                                   ("last", "Last checked", 120)):
             self.tree.heading(name, text=title)
             self.tree.column(name, width=width, anchor="w")
         scroll = ttk.Scrollbar(left, orient="vertical", command=self.tree.yview)
@@ -198,6 +218,19 @@ class TravelReadyGUI:
         self.progress.pack(side="right")
 
     def _build_optimiser_panel(self, parent: ttk.Frame) -> None:
+        mode_bar = ttk.Frame(parent)
+        mode_bar.pack(fill="x", pady=(0, 6))
+        ttk.Label(mode_bar, text="Operating mode:").pack(side="left", padx=(0, 6))
+        self.mode_var = tk.StringVar(value=self.settings.operating_mode)
+        for label, value in (("Travel / battery", MODE_BATTERY),
+                             ("Balanced", MODE_BALANCED),
+                             ("Performance", MODE_PERFORMANCE)):
+            ttk.Radiobutton(mode_bar, text=label, value=value,
+                            variable=self.mode_var,
+                            command=self._on_mode_changed).pack(side="left", padx=4)
+        self.source_label = ttk.Label(mode_bar, text="", font=SUB_FONT)
+        self.source_label.pack(side="right")
+
         bar = ttk.Frame(parent)
         bar.pack(fill="x", pady=(0, 8))
         ttk.Button(bar, text="Review changes",
@@ -208,15 +241,65 @@ class TravelReadyGUI:
         self.apply_button.pack(side="left", padx=3)
         ttk.Button(bar, text="Restore backup",
                    command=self._on_restore_backup).pack(side="left", padx=3)
-        ttk.Button(bar, text="ROG Ally Life",
-                   command=self._open_rog_ally_life).pack(side="right", padx=3)
+        self.view_source_button = ttk.Button(bar, text="View source",
+                                             command=self._open_rog_ally_life,
+                                             state="disabled")
+        self.view_source_button.pack(side="right", padx=3)
+        ttk.Button(bar, text=f"Update {SOURCE_NAME}",
+                   command=self._on_update_source).pack(side="right", padx=3)
         self.settings_text = tk.Text(parent, wrap="word", font=MONO_FONT,
                                      relief="flat", background="#f7f7f8")
         self.settings_text.pack(fill="both", expand=True)
+        self._update_source_label()
         self._set_text(self.settings_text,
                        "Select a game, then choose 'Review changes'.\n\n"
-                       "Nothing is ever changed without showing you the exact diff "
-                       "and asking first.")
+                       "Recommendations come from ROG Ally Life. Nothing is ever "
+                       "changed without showing you the exact diff and asking first.")
+
+    def _update_source_label(self) -> None:
+        stats = self.source_cache.stats()
+        last = stats["last_sync"][:10] if stats["last_sync"] else "never synced"
+        self.source_label.configure(
+            text=f"{SOURCE_NAME}: {stats['files']} games, {last}")
+
+    def _on_mode_changed(self) -> None:
+        self.settings.operating_mode = self.mode_var.get()
+        self.settings.save()
+        self.resolver = self._build_resolver()
+        self.current_plan = None
+        self.apply_button.configure(state="disabled")
+        self._log(f"Operating mode set to {self.settings.operating_mode}.")
+
+    def _on_update_source(self) -> None:
+        def work() -> None:
+            try:
+                cache = ProfileCache()
+                report = ral_sync.sync(
+                    RogAllyLifeClient(), cache,
+                    device_family=ral_bridge.family_for_device(TARGET_DEVICE),
+                    progress=lambda m: self.ui_queue.put(("log", m)))
+                self.ui_queue.put(("source_synced", report))
+            except Exception as exc:
+                self.ui_queue.put(("log", f"{SOURCE_NAME} update failed: {exc}"))
+                self.ui_queue.put(("done", "Update failed."))
+
+        self._start_worker(work, f"Updating {SOURCE_NAME}\u2026")
+
+    def _on_source_synced(self, report) -> None:
+        self._worker_finished()
+        self._log(report.describe())
+        self.source_cache = ProfileCache()
+        self.resolver = self._build_resolver()
+        self._update_source_label()
+        self._refresh()
+        if report.blocked:
+            messagebox.showwarning(
+                f"{SOURCE_NAME} unreachable",
+                f"Could not reach {SOURCE_BASE}.\n\nAnything already cached still "
+                f"works offline. Check your connection and try again.")
+        else:
+            messagebox.showinfo(f"{SOURCE_NAME} updated", report.describe())
+        self._set_status("Update finished.")
 
     # -- helpers -----------------------------------------------------------
 
@@ -271,6 +354,9 @@ class TravelReadyGUI:
     def _refresh(self) -> None:
         self.tree.delete(*self.tree.get_children())
         self.iid_to_entry.clear()
+        # Settings availability is shown beside launch readiness and never
+        # gates it: a game with no published profile is still ready to travel.
+        resolver = self.resolver if self.source_cache.index.entries else None
         for entry in sorted(self._visible_entries(), key=lambda e: e.name.lower()):
             state = readiness.state_of(entry, self.settings.stale_days)
             verified = entry.verification
@@ -280,6 +366,7 @@ class TravelReadyGUI:
                 verified = "not possible"
             iid = self.tree.insert("", "end", text=entry.name,
                                    values=(entry.launcher, state, verified,
+                                           readiness.settings_state_of(entry, resolver),
                                            readiness.age_text(entry)))
             self.iid_to_entry[iid] = entry
         self._update_tab_labels()
@@ -395,6 +482,8 @@ class TravelReadyGUI:
                     self._on_scanned(payload)
                 elif kind == "tested":
                     self._on_tested(payload)
+                elif kind == "source_synced":
+                    self._on_source_synced(payload)
                 elif kind == "done":
                     self._worker_finished()
                     self._set_status(payload)
@@ -520,15 +609,22 @@ class TravelReadyGUI:
             return
         entry = selected[0]
         self.profile_store = opt_profiles.ProfileStore.load()
-        plan = opt_diff.plan_for_game(entry, self.profile_store)
+        plan = opt_diff.plan_for_game(entry, self.profile_store,
+                                      resolver=self.resolver,
+                                      mode=self.settings.operating_mode)
         self.current_plan = plan
+        self._source_url = (plan.profile.source_url if plan.profile else "")
+        self.view_source_button.configure(
+            state="normal" if self._source_url else "disabled")
         text = opt_diff.render_plan(plan)
         if plan.profile is None:
-            text += (f"\n\nInstalled ROG Ally Life profiles: {len(self.profile_store)}\n"
-                     f"Look this game up at:\n  "
-                     f"{opt_profiles.rog_ally_life_search_url(entry.name)}\n\n"
-                     f"Use 'ROG Ally Life' above to open the site, then import a "
-                     f"profile with the command line.")
+            stats = self.source_cache.stats()
+            text += (f"\n\nCached {SOURCE_NAME} games: {stats['files']}"
+                     f"   locally imported profiles: {len(self.profile_store)}\n"
+                     f"Last sync: {stats['last_sync'] or 'never'}\n\n"
+                     f"Use 'Update {SOURCE_NAME}' above to refresh, or look this "
+                     f"game up at:\n  "
+                     f"{opt_profiles.rog_ally_life_search_url(entry.name)}")
         else:
             for path in sorted({c.file_path for c in plan.applicable()}):
                 run = opt_tx.dry_run(plan, path)
@@ -596,9 +692,12 @@ class TravelReadyGUI:
         messagebox.showinfo("Restored", f"Restored:\n{backup.original_path}")
 
     def _open_rog_ally_life(self) -> None:
-        selected = self._selected_entries()
-        url = (opt_profiles.rog_ally_life_search_url(selected[0].name) if selected
-               else opt_profiles.ROG_ALLY_LIFE_BASE)
+        """Open the exact page a recommendation came from, when one is loaded."""
+        url = getattr(self, "_source_url", "")
+        if not url:
+            selected = self._selected_entries()
+            url = (opt_profiles.rog_ally_life_search_url(selected[0].name)
+                   if selected else SOURCE_BASE)
         webbrowser.open(url)
 
     # -- dialogs -----------------------------------------------------------
