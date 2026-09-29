@@ -228,10 +228,6 @@ def build_identities(entries: Sequence[GameEntry],
     return identities
 
 
-def index_by_key(identities: Sequence[GameIdentity]) -> Dict[str, GameIdentity]:
-    return {identity.key: identity for identity in identities}
-
-
 def find_identity(identities: Sequence[GameIdentity], name: str) -> Optional[GameIdentity]:
     """The identity matching ``name`` exactly or by identity key."""
     target = str(name or "").strip().lower()

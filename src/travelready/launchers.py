@@ -368,18 +368,6 @@ def adapter_for(launcher: str) -> LauncherAdapter:
     return ADAPTERS.get(str(launcher or "").strip().lower(), ADAPTERS["other"])
 
 
-def adapter_for_entry(entry: GameEntry) -> LauncherAdapter:
-    return adapter_for(entry.launcher)
-
-
-def all_infrastructure_processes() -> frozenset:
-    """Every launcher process that must never be adopted as a game."""
-    out: set = set()
-    for adapter in ADAPTERS.values():
-        out.update(adapter.infrastructure_processes)
-    return frozenset(out)
-
-
 def capability_matrix() -> str:
     """The launcher capability table, for ``travelready doctor`` and the docs."""
     lines = [f"{'Launcher':<22}{'Launch':<10}{'Detect':<10}{'Verify':<10}"

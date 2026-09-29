@@ -321,7 +321,7 @@ def _check_settings(report: DoctorReport) -> None:
 
 
 def _check_run_state(report: DoctorReport) -> None:
-    from .prepare_run import RUN_FILE, RUN_VERSION, load_run
+    from .prepare_run import RUN_FILE, clear_run, load_run
 
     section = "Prepare-for-Travel"
     path = data_file(RUN_FILE)
@@ -334,7 +334,7 @@ def _check_run_state(report: DoctorReport) -> None:
             section, "Saved run", WARN,
             "unreadable or from an incompatible version",
             fix_hint="It will be discarded; start a fresh prepare.")
-        finding.repair = lambda: (path.unlink(missing_ok=True),
+        finding.repair = lambda: (clear_run(),
                                   "removed the unusable run record")[1]
         return
     if run.resumable:

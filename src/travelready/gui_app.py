@@ -139,6 +139,10 @@ class TravelReadyGUI:
         style.configure("TNotebook.Tab", padding=(18, 10), font=BASE_FONT)
         for state, colour in readiness.STATE_COLORS.items():
             style.configure(f"{state}.TLabel", foreground=colour, font=SUB_FONT)
+        # Readiness verdicts get the same treatment, so the tree can colour a
+        # row by its verdict rather than leaving the user to read every cell.
+        for verdict, colour in preparation.READINESS_COLORS.items():
+            self.root.option_add(f"*{verdict}", colour)
 
     def _build_widgets(self) -> None:
         header = ttk.Frame(self.root, padding=(16, 12))
@@ -426,8 +430,11 @@ class TravelReadyGUI:
                 values=(launcher, report.readiness.replace("_", " ").title(),
                         verify,
                         settings_labels.get(report.settings_state, "-"),
-                        readiness.age_text(installation.entry)))
+                        readiness.age_text(installation.entry)),
+                tags=(report.readiness,))
             self.iid_to_entry[iid] = identity
+        for verdict, colour in preparation.READINESS_COLORS.items():
+            self.tree.tag_configure(verdict, foreground=colour)
         self._update_tab_labels()
         self._update_dashboard()
 
