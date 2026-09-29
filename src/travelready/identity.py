@@ -148,10 +148,19 @@ class GameIdentity:
         return None
 
     def add_alias(self, title: str) -> None:
-        folded = fold(title)
-        if folded and folded not in {fold(a) for a in self.aliases} \
-                and folded != fold(self.canonical_title):
-            self.aliases.append(title)
+        """Record another spelling this game is known by.
+
+        Deduplicated on the *raw* string, not the folded one: ``Clair Obscur-
+        Expedition 33`` and ``Clair Obscur: Expedition 33`` fold to the same
+        key, which is why they group — but they are different strings a user
+        might type or see, so both are kept for lookup and display.
+        """
+        text = str(title or "").strip()
+        if not text or text.lower() == self.canonical_title.strip().lower():
+            return
+        if text.lower() in {a.strip().lower() for a in self.aliases}:
+            return
+        self.aliases.append(text)
 
     def __repr__(self) -> str:                         # pragma: no cover
         return (f"<GameIdentity {self.canonical_title!r} "
