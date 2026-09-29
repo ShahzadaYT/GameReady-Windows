@@ -176,6 +176,47 @@ def summarize(entries: Sequence, stale_days: int = DEFAULT_STALE_DAYS,
     return out
 
 
+# --------------------------------------------------------------------------
+# settings readiness — reported alongside launch readiness, never gating it
+# --------------------------------------------------------------------------
+
+SETTINGS_READY = "Ready"
+SETTINGS_REVIEW = "Review"
+SETTINGS_NONE = "No profile"
+SETTINGS_MANUAL = "Manual"
+SETTINGS_UNKNOWN = "Not checked"
+
+_SETTINGS_FROM_STATUS = {
+    "matched": SETTINGS_READY,
+    "review": SETTINGS_REVIEW,
+    "no_profiles_published": SETTINGS_REVIEW,
+    "no_profile": SETTINGS_NONE,
+}
+
+
+def settings_state_of(entry, resolver=None) -> str:
+    """Whether a ROG Ally Life profile is available for ``entry``.
+
+    This is reported *beside* launch readiness and never affects it: a game
+    with no published recommendation is still perfectly launchable, and
+    TravelReady must not hold up Prepare-for-Travel because an optional
+    optimisation is unavailable.
+    """
+    if resolver is None:
+        return SETTINGS_UNKNOWN
+    try:
+        resolution = resolver.resolve(entry)
+    except Exception:
+        return SETTINGS_UNKNOWN
+    state = _SETTINGS_FROM_STATUS.get(resolution.status, SETTINGS_UNKNOWN)
+    if state == SETTINGS_READY and resolution.profile is not None:
+        applicable = [r for r in resolution.profile.recommendations
+                      if r.category == "game"]
+        if not applicable:
+            return SETTINGS_MANUAL
+    return state
+
+
 def is_travel_ready(entries: Sequence, stale_days: int = DEFAULT_STALE_DAYS,
                     now: Optional[datetime] = None) -> bool:
     """True when nothing in the selection still needs attention."""

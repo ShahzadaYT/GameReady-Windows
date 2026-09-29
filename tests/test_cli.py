@@ -75,7 +75,9 @@ def test_settings_show_says_when_no_profile_exists(capsys, library):
     assert code == 0
     assert "NOT FOUND" in out
     assert "rogallylife.com" in out
-    assert "Installed profiles: 0" in out
+    assert "Cached ROG Ally Life games: 0" in out
+    assert "locally imported profiles: 0" in out
+    assert "settings update" in out
 
 
 def test_settings_show_reports_an_ambiguous_name(capsys, library):

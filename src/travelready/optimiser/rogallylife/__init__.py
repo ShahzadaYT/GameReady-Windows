@@ -15,6 +15,9 @@ Layout::
     capability what TravelReady can actually detect / apply / verify
     select     which profile suits the user's operating mode, transparently
     sync       update, diff and summarise
+    bridge     source data -> the optimiser's GameProfile, attribution intact
+    coverage   how much of a library the source actually covers
+    known_urls post URLs observed on the site, used only as a discovery hint
 
 Nothing in this package invents a recommendation. If the site has no entry for
 a game, the answer is "no profile found" — never an extrapolation from another

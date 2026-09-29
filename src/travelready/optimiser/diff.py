@@ -18,6 +18,7 @@ from .model import (
     category_of,
 )
 from .profiles import ProfileStore
+from .rogallylife.capability import SCOPE_GAME, capability_for
 from .safety import classify_target, classify_device
 
 
@@ -54,11 +55,22 @@ def build_plan(entry: GameEntry, profile: Optional[GameProfile],
             if mapping is not None:
                 section, config_key = mapping.section, mapping.config_key
 
+        capability = capability_for(rec.key)
         if rec.category == CATEGORY_DEVICE:
             safety, reason = MANUAL, (
+                rec.note or
                 "Device-wide setting. TravelReady shows it so you can apply it "
                 "yourself; it does not change TDP, fan, VRAM, Armoury Crate, "
                 "Adrenalin or Windows power settings.")
+        elif capability is not None and not capability.automatable:
+            # The capability registry is the authority on whether TravelReady
+            # knows how to write a setting at all. A source may recommend it and
+            # the file may be perfectly safe to edit, and it is still manual
+            # until there is a validated mapping for the key.
+            safety, reason = MANUAL, (
+                capability.note or
+                f"TravelReady has no validated way to change '{rec.key}' "
+                f"automatically. Apply it in the game.")
         elif not file_path:
             safety, reason = RESEARCH_REQUIRED, (
                 "This game's configuration file for this setting was not found, "
@@ -89,11 +101,45 @@ def build_plan(entry: GameEntry, profile: Optional[GameProfile],
 
 
 def plan_for_game(entry: GameEntry, store: Optional[ProfileStore] = None,
-                  target_device: str = TARGET_DEVICE) -> ChangePlan:
-    """Look up the profile for ``entry`` and build its plan. Read-only."""
+                  target_device: str = TARGET_DEVICE,
+                  resolver=None, *, mode: Optional[str] = None) -> ChangePlan:
+    """Look up the profile for ``entry`` and build its plan. Read-only.
+
+    A locally imported profile wins over the cached ROG Ally Life data, so a
+    profile the user curated by hand is not overwritten by a sync. Otherwise
+    ``resolver`` (a
+    :class:`travelready.optimiser.rogallylife.bridge.SourceResolver`) supplies
+    the profile, and the match and selection reasoning is carried onto the plan
+    so the UI can explain both.
+    """
     store = store or ProfileStore.load()
     profile = store.find(entry.name, target_device, entry.launcher)
-    return build_plan(entry, profile, target_device=target_device)
+    if profile is not None:
+        return build_plan(entry, profile, target_device=target_device)
+
+    if resolver is None:
+        return build_plan(entry, None, target_device=target_device)
+
+    resolution = resolver.resolve(entry, mode=mode)
+    plan = build_plan(entry, resolution.profile, target_device=target_device)
+    plan.resolution = resolution
+    if resolution.profile is None:
+        plan.warnings = [w for w in plan.warnings if "No ROG Ally Life profile" not in w]
+        if resolution.needs_review:
+            plan.warnings.append(
+                f"A possible ROG Ally Life match was found but is below the automatic "
+                f"threshold: '{resolution.match.matched_title}' "
+                f"(confidence {resolution.match.confidence:.2f} — "
+                f"{resolution.match.reason}). Review it before using it.")
+        elif resolution.status == "no_profiles_published":
+            plan.warnings.append(
+                f"ROG Ally Life has a page for '{resolution.match.matched_title}' but "
+                f"no usable settings profile could be read from it.")
+        else:
+            plan.warnings.append(
+                "NO PROFILE FOUND — ROG Ally Life has no recommendation for this game. "
+                "TravelReady does not substitute settings from anywhere else.")
+    return plan
 
 
 def render_plan(plan: ChangePlan) -> str:

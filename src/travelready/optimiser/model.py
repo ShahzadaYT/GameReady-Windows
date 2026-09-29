@@ -230,6 +230,10 @@ class ChangePlan:
     changes: List[ProposedChange] = field(default_factory=list)
     config_files: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
+    #: How the source profile was found, when one came from an external source.
+    #: Carries the match confidence and the profile-selection reasoning so the
+    #: UI can show both. ``None`` for a locally imported profile.
+    resolution: object = None
     generated_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat(timespec="seconds"))
 
@@ -272,4 +276,21 @@ class ChangePlan:
             "changes": [c.to_dict() for c in self.changes],
             "config_files": list(self.config_files),
             "warnings": list(self.warnings),
+            "match": (
+                {
+                    "matched_title": self.resolution.match.matched_title,
+                    "confidence": self.resolution.match.confidence,
+                    "reason": self.resolution.match.reason,
+                    "source_url": self.resolution.match.source_url,
+                }
+                if getattr(self.resolution, "match", None) else None),
+            "profile_selection": (
+                {
+                    "profile": self.resolution.selection.profile.label,
+                    "mode": self.resolution.selection.mode,
+                    "reason": self.resolution.selection.reason,
+                    "alternatives": list(self.resolution.selection.alternatives),
+                }
+                if getattr(getattr(self.resolution, "selection", None), "profile", None)
+                else None),
         }

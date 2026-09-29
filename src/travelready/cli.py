@@ -39,6 +39,14 @@ from .optimiser import diff as opt_diff
 from .optimiser import profiles as opt_profiles
 from .optimiser import transaction as opt_tx
 from .optimiser.model import TARGET_DEVICE
+from .optimiser.rogallylife import SOURCE_BASE, SOURCE_NAME
+from .optimiser.rogallylife import bridge as ral_bridge
+from .optimiser.rogallylife import capability as ral_capability
+from .optimiser.rogallylife import sync as ral_sync
+from .optimiser.rogallylife.cache import ProfileCache
+from .optimiser.rogallylife.client import FetchError, RogAllyLifeClient
+from .optimiser.rogallylife import coverage as ral_coverage
+from .optimiser.rogallylife.select import MODE_BALANCED, OPERATING_MODES
 
 
 def _library_path(args) -> Path:
@@ -187,9 +195,22 @@ def cmd_prepare(args) -> int:
 def cmd_report(args) -> int:
     entries = _filtered(_load(args), args)
     summary = readiness.summarize(entries, args.stale_days)
+    resolver = _resolver(args) if args.settings else None
     print("=" * 60)
     print("TRAVELREADY TRIP REPORT")
     print("=" * 60)
+    if resolver is not None:
+        print()
+        print(f"{'Game':<34}{'Launcher':<11}{'Settings':<14}Launch")
+        print("-" * 72)
+        for entry in sorted(entries, key=lambda e: e.name.lower()):
+            state = readiness.state_of(entry, args.stale_days)
+            launch = "Ready" if state == readiness.STATE_READY else state.title()
+            print(f"{entry.name[:33]:<34}{entry.launcher:<11}"
+                  f"{readiness.settings_state_of(entry, resolver):<14}{launch}")
+        print()
+        print("Settings and launch readiness are separate: a game with no published")
+        print("profile is still ready to travel.")
     for state in readiness.STATES:
         rows = [e for e in entries if readiness.state_of(e, args.stale_days) == state]
         if not rows:
@@ -249,6 +270,133 @@ def _entry_for(args) -> Optional[GameEntry]:
     return partial[0]
 
 
+def _resolver(args) -> ral_bridge.SourceResolver:
+    return ral_bridge.SourceResolver(
+        ProfileCache(),
+        target_device=TARGET_DEVICE,
+        mode=getattr(args, "mode", None) or MODE_BALANCED,
+        max_watts=getattr(args, "max_watts", None),
+    )
+
+
+def cmd_settings_update(args) -> int:
+    """Refresh the local ROG Ally Life cache and report what changed."""
+    cache = ProfileCache()
+    client = RogAllyLifeClient(delay=args.delay)
+    report = ral_sync.sync(
+        client, cache,
+        device_family=ral_bridge.family_for_device(TARGET_DEVICE),
+        titles=args.game or None, force=args.force, limit=args.limit,
+        progress=_progress if args.verbose else None,
+    )
+    print(report.describe())
+    if report.blocked:
+        print(f"\nThe cache still holds {len(cache.index.entries)} entr(ies) and works "
+              f"offline.\nSource: {SOURCE_BASE}", file=sys.stderr)
+        return 3
+    return 0 if report.ok else 1
+
+
+def cmd_settings_status(args) -> int:
+    """Cache health, match coverage over the library, capability matrix."""
+    cache = ProfileCache()
+    stats = cache.stats()
+    print(f"{SOURCE_NAME} cache")
+    print(f"  location         {stats['root']}")
+    print(f"  cached games     {stats['files']}")
+    print(f"  profiles         {stats['profiles']}")
+    print(f"  last sync        {stats['last_sync'] or 'never'}")
+    print(f"  parser version   {stats['parser_version']}")
+    stale = cache.needs_reparse(ral_sync.PARSER_VERSION)
+    if stale:
+        print(f"  needs re-parse   {len(stale)} (run: travelready settings update --force)")
+
+    entries = _filtered(_load(args), args)
+    if entries:
+        resolver = _resolver(args)
+        counts = {"matched": 0, "review": 0, "no_profile": 0, "no_profiles_published": 0}
+        for resolution in resolver.resolve_all(entries):
+            counts[resolution.status] = counts.get(resolution.status, 0) + 1
+        print(f"\nLibrary coverage ({len(entries)} games)")
+        print(f"  with a profile   {counts['matched']}")
+        print(f"  needs review     {counts['review']}")
+        print(f"  page but no data {counts['no_profiles_published']}")
+        print(f"  no recommendation{counts['no_profile']:>4}")
+
+    if args.capabilities:
+        print()
+        print(ral_capability.describe_matrix())
+    return 0
+
+
+def cmd_settings_coverage(args) -> int:
+    """How much of the library ROG Ally Life covers."""
+    entries = _filtered(_load(args), args)
+    cache = ProfileCache()
+    if cache.index.entries or args.cached_only:
+        report = ral_coverage.build_report(entries, _resolver(args),
+                                           mode=getattr(args, "mode", None))
+    else:
+        print("The ROG Ally Life cache is empty — matching against the observed "
+              "post-title list instead.\nRun 'travelready settings update' to fetch "
+              "the real recommendations.\n", file=sys.stderr)
+        report = ral_coverage.title_only_report(entries)
+    print(report.describe(detail=args.detail))
+    return 0
+
+
+def cmd_settings_search(args) -> int:
+    """Search the cached source data by title."""
+    resolver = _resolver(args)
+    rows = resolver.search(args.term, limit=args.limit)
+    if not rows:
+        print(f"Nothing cached matching '{args.term}'.")
+        print("Run 'travelready settings update' first, or the source has no page for it.")
+        return 2
+    for confidence, game in rows:
+        marker = "auto " if confidence >= 0.90 else "review"
+        print(f"  {confidence:.2f} {marker}  {game.title}")
+        print(f"                {len(game.profiles)} profile(s): "
+              f"{', '.join(game.profile_labels()) or '(none)'}")
+        print(f"                {game.source_url}")
+    return 0
+
+
+def cmd_settings_source(args) -> int:
+    """Show the raw source record and attribution for a game."""
+    entry = _entry_for(args)
+    if entry is None:
+        return 2
+    resolution = _resolver(args).resolve(entry, accept_review=True)
+    if resolution.match is None:
+        print(f"{entry.name}\nNO PROFILE FOUND")
+        print(f"\n{SOURCE_NAME} has no cached recommendation for this game.")
+        print("TravelReady does not substitute settings from any other source.")
+        return 2
+    print(resolution.describe())
+    game = resolution.source_game
+    if game is None:
+        return 0
+    print()
+    print(f"Source:             {game.source_name}")
+    print(f"URL:                {game.source_url}")
+    print(f"Retrieved:          {game.retrieved_at}")
+    print(f"Source last updated:{game.last_updated or 'unknown'}")
+    print(f"Parser version:     {game.parser_version}")
+    print(f"Content hash:       {game.content_hash[:16]}")
+    if game.performance_rating is not None:
+        print(f"Performance rating: {game.performance_rating} ({game.rating_word})")
+    print()
+    print("Published profiles:")
+    for profile in game.profiles:
+        print(f"  {profile.label}")
+        for setting in profile.settings:
+            cap = ral_capability.capability_for(setting.canonical)
+            status = cap.status if cap else "informational"
+            print(f"      {setting.label:28} {setting.value:16} [{status}]")
+    return 0
+
+
 def cmd_settings_show(args) -> int:
     entry = _entry_for(args)
     if entry is None:
@@ -257,11 +405,15 @@ def cmd_settings_show(args) -> int:
     if store.errors:
         for error in store.errors:
             print(f"! profile error: {error}", file=sys.stderr)
-    plan = opt_diff.plan_for_game(entry, store)
+    plan = opt_diff.plan_for_game(entry, store, resolver=_resolver(args),
+                                  mode=getattr(args, "mode", None))
     print(opt_diff.render_plan(plan))
     if plan.profile is None:
-        print(f"\nLook it up at: {opt_profiles.rog_ally_life_search_url(entry.name)}")
-        print(f"Installed profiles: {len(store)}")
+        cache = ProfileCache()
+        print(f"\nCached {SOURCE_NAME} games: {len(cache.index.entries)}"
+              f"   locally imported profiles: {len(store)}")
+        print("Run 'travelready settings update' to refresh the cache.")
+        print(f"Look it up at: {opt_profiles.rog_ally_life_search_url(entry.name)}")
     return 0
 
 
@@ -269,9 +421,12 @@ def cmd_settings_dry_run(args) -> int:
     entry = _entry_for(args)
     if entry is None:
         return 2
-    plan = opt_diff.plan_for_game(entry)
+    plan = opt_diff.plan_for_game(entry, resolver=_resolver(args),
+                                  mode=getattr(args, "mode", None))
     if not plan.applicable():
         print("No SAFE changes to make.")
+        for warning in plan.warnings:
+            print(f"  {warning}")
         return 0
     for path in sorted({c.file_path for c in plan.applicable()}):
         run = opt_tx.dry_run(plan, path)
@@ -284,7 +439,8 @@ def cmd_settings_apply(args) -> int:
     entry = _entry_for(args)
     if entry is None:
         return 2
-    plan = opt_diff.plan_for_game(entry)
+    plan = opt_diff.plan_for_game(entry, resolver=_resolver(args),
+                                  mode=getattr(args, "mode", None))
     applicable = plan.applicable()
     if not applicable:
         print("No SAFE changes to apply.")
@@ -429,6 +585,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("report", help="trip report")
     add_filters(p)
     p.add_argument("--stale-days", type=int, default=readiness.DEFAULT_STALE_DAYS)
+    p.add_argument("--settings", action="store_true",
+                   help="include a ROG Ally Life settings column")
+    p.add_argument("--mode", choices=list(OPERATING_MODES), default=MODE_BALANCED)
+    p.add_argument("--max-watts", type=int)
     p.set_defaults(func=cmd_report)
 
     p = sub.add_parser("history", help="recent results")
@@ -449,17 +609,60 @@ def build_parser() -> argparse.ArgumentParser:
     settings = sub.add_parser("settings", help="game settings optimisation")
     ssub = settings.add_subparsers(dest="settings_command", required=True)
 
+    def add_mode(p_):
+        p_.add_argument("--mode", choices=list(OPERATING_MODES), default=MODE_BALANCED,
+                        help="which published profile to prefer")
+        p_.add_argument("--max-watts", type=int,
+                        help="never choose a profile above this wattage")
+
     sp = ssub.add_parser("show", help="current vs recommended (read-only)")
     sp.add_argument("game")
+    add_mode(sp)
     sp.set_defaults(func=cmd_settings_show)
+
+    sp = ssub.add_parser("update", help=f"refresh the {SOURCE_NAME} cache")
+    sp.add_argument("game", nargs="*", help="limit to games whose title contains this")
+    sp.add_argument("--force", action="store_true", help="re-fetch even if unchanged")
+    sp.add_argument("--limit", type=int, help="stop after this many posts")
+    sp.add_argument("--delay", type=float, default=1.0,
+                    help="seconds between requests (never below the site's Crawl-delay)")
+    sp.set_defaults(func=cmd_settings_update)
+
+    sp = ssub.add_parser("status", help="cache health and library coverage")
+    add_filters(sp)
+    add_mode(sp)
+    sp.add_argument("--capabilities", action="store_true",
+                    help="also print the settings capability matrix")
+    sp.set_defaults(func=cmd_settings_status)
+
+    sp = ssub.add_parser("coverage", help="how much of the library the source covers")
+    add_filters(sp)
+    add_mode(sp)
+    sp.add_argument("--detail", action="store_true", help="list every game")
+    sp.add_argument("--cached-only", action="store_true",
+                    help="never fall back to the observed title list")
+    sp.set_defaults(func=cmd_settings_coverage)
+
+    sp = ssub.add_parser("search", help="search the cached source data")
+    sp.add_argument("term")
+    sp.add_argument("--limit", type=int, default=10)
+    add_mode(sp)
+    sp.set_defaults(func=cmd_settings_search)
+
+    sp = ssub.add_parser("source", help="the raw source record and attribution")
+    sp.add_argument("game")
+    add_mode(sp)
+    sp.set_defaults(func=cmd_settings_source)
 
     sp = ssub.add_parser("dry-run", help="print the exact diff a write would make")
     sp.add_argument("game")
+    add_mode(sp)
     sp.set_defaults(func=cmd_settings_dry_run)
 
     sp = ssub.add_parser("apply", help="apply approved SAFE changes")
     sp.add_argument("game")
     sp.add_argument("--yes", action="store_true", help="skip the confirmation prompt")
+    add_mode(sp)
     sp.set_defaults(func=cmd_settings_apply)
 
     sp = ssub.add_parser("restore", help="restore a configuration backup")
