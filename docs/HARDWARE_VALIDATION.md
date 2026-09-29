@@ -132,3 +132,75 @@ travelready settings coverage --detail
 If `test_a_real_post_parses_into_profiles` fails, the page structure differs
 from what was inferred: update `parser.py`, raise `PARSER_VERSION`, and the
 cache re-reads everything on the next sync.
+
+---
+
+## Pre-hardware pass: the real `games.json`, evaluated
+
+Run with `travelready settings coverage --detail` and `travelready ready`.
+Assessed **off Windows**, so environment-dependent checks return UNKNOWN — that
+is the point of the requirement model, not a gap in the data.
+
+```
+Raw entries                162
+After merging duplicates   155
+Classified as games        123
+Classified as non-games     32      (20 system, 7 vendor, 4 launcher, 1 utility)
+Distinct game identities   123
+Verifiable automatically   103      (20 have no process/install-dir signal)
+
+Games by launcher
+  steam 44 · other 36 · xbox 20 · ea 8 · ubisoft 7 · epic 6 · gog 2
+
+Travel readiness
+  ACTION REQUIRED  80     all for the same reason: never launched while online
+  UNKNOWN          43     previously passed; "installed" cannot be confirmed here
+
+ROG Ally Life coverage
+  Not checked (source not synced)  123
+  No recommendation published        0
+```
+
+The last two lines are the distinction that matters: with an unsynced cache the
+answer is *not checked*, not *no recommendation*. Every game lands in exactly
+one category, asserted by `categorised()` itself.
+
+### What changes on the device
+
+| Number | Off Windows | On the ROG Ally |
+|---|---|---|
+| Installed | UNKNOWN for all 123 | resolved per game |
+| Launcher present | UNKNOWN | resolved per launcher |
+| Sign-in | UNKNOWN (by design — no adapter reads credentials) | still UNKNOWN; the user confirms |
+| Verifiable | 103 of 123 — computed from stored data, so it holds | unchanged |
+| Never launched | 80 | unchanged until a prepare run |
+| Recommendations | 123 not checked | resolved after `settings update` |
+
+### Remaining hardware boundary
+
+Unchanged from the previous pass, plus these from the new architecture:
+
+| Test | What it would prove |
+|---|---|
+| `test_process_table_reads_real_processes` | `Win32_Process` / `tasklist` shape |
+| launcher `_detect_installed()` per adapter | Steam path, `Get-StartApps`, EA registry, Epic manifests |
+| `environment._probe_rog_ally` | the system model string on a real Ally |
+| a real `prepare` run | orchestration, launch, verify, cleanup end to end |
+| `--resume` after a real interruption | the persisted run against real state |
+| `travelready doctor` on the device | every probe against real Windows |
+
+Run on the device:
+
+```
+travelready doctor
+travelready scan -v
+travelready scan --explain        # check the classification against your library
+travelready ready
+travelready settings update
+travelready prepare
+```
+
+`travelready scan --explain` is the one to read first: it lists every entry
+TravelReady excluded and why. If it excludes a game you own, that is a
+classification bug worth reporting — the rules are in
+`src/travelready/classification.py` and each carries its reason.

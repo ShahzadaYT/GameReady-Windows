@@ -53,10 +53,34 @@ python run.py --help       # CLI
 
 ```
 travelready scan                 # find installed games
-travelready status               # what is ready, what is not
-travelready prepare              # launch, verify and close everything not ready
-travelready report               # the trip report
+travelready ready                # what is ready to travel, and why not
+travelready prepare              # prepare everything that is not
+travelready prepare --resume     # continue an interrupted run
+travelready doctor               # diagnose anything that is not working
 ```
+
+`travelready ready "Cyberpunk 2077"` shows every check for one game:
+
+```
+CYBERPUNK 2077
+
+READY WITH WARNINGS
+
+✓ Installed
+✓ GOG available
+✓ Launch target discovered
+✓ Launch can be verified — known process name
+✓ Launcher sign-in — GOG games are DRM-free, no sign-in is needed offline
+✓ Launched successfully while online
+✓ Offline play supported
+⚠ ROG Ally Life profile — no recommendation published for this game
+
+What to do:
+  1. Run 'travelready settings update' while you are online.
+```
+
+Settings and launch readiness are **separate**: a game with no published
+profile is still ready to travel.
 
 Settings:
 
@@ -170,13 +194,14 @@ Full detail: **[docs/SAFETY.md](docs/SAFETY.md)**.
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Module layout and the read-only / write split |
 | [docs/ENGINEERING_ASSESSMENT.md](docs/ENGINEERING_ASSESSMENT.md) | Audit of the previous builds and the root causes of the Xbox and EA regressions |
 | [docs/ROGALLYLIFE.md](docs/ROGALLYLIFE.md) | How the source is structured, retrieved, matched, cached and mapped |
+| [docs/AUDIT.md](docs/AUDIT.md) | The pre-hardware audit: what was dead, duplicated, fragile or missing |
 | [docs/HARDWARE_VALIDATION.md](docs/HARDWARE_VALIDATION.md) | What is code-verified vs. what still needs the device |
 
 ## Development
 
 ```
 pip install -e ".[dev]"
-python -m pytest              # 513 tests
+python -m pytest              # 682 tests
 pytest -m hardware            # the cases that need a real device
 ```
 
@@ -189,4 +214,4 @@ pyinstaller travelready.spec  # -> dist/TravelReady.exe
 
 ---
 
-**Version** 0.3.0 · **Platform** Windows · **Target** ASUS ROG Ally X
+**Version** 0.4.0 · **Platform** Windows · **Target** ASUS ROG Ally X
