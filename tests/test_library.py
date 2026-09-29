@@ -164,3 +164,21 @@ def test_txt_import_of_executable_paths(tmp_path):
     imported, _ = L.import_games(path)
     assert [e.name for e in imported] == ["foo", "bar"]
     assert imported[0].origin == "manual"
+
+
+def test_the_supplied_fixtures_are_pristine():
+    """The real games.json files are evidence and must stay byte-exact.
+
+    They were overwritten once during development by pointing a ``prepare``
+    run at them with ``--library``. This pins their identifying fields so that
+    cannot pass unnoticed again.
+    """
+    import json
+
+    for name, saved_at, count in (
+            ("games_2026-09-23.json", "2026-09-23T21:32:16.922852+00:00", 152),
+            ("games_2026-09-26.json", "2026-09-26T20:51:36.716399+00:00", 162)):
+        data = json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+        assert data["version"] == "2", f"{name} is no longer the shipped v2 file"
+        assert data["saved_at"] == saved_at
+        assert len(data["games"]) == count
