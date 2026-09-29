@@ -115,6 +115,22 @@ def schema_for_file(path: str) -> Optional[ConfigSchema]:
 # locating config files
 # --------------------------------------------------------------------------
 
+def _join(base: str, relative: str, leaf: str) -> str:
+    """Join a base path with a backslash-separated relative path.
+
+    ``relative`` is spelled the way Windows spells it. Splitting it into
+    components here keeps the join correct whether ``base`` is a Windows path
+    or a POSIX one, so the same code works on the device and under test —
+    otherwise ``Saved\\Config\\WindowsNoEditor`` becomes one long filename on a
+    POSIX host and no config file is ever found.
+    """
+    path = as_path(base)
+    for part in str(relative).replace("/", "\\").split("\\"):
+        if part:
+            path = path / part
+    return str(path / leaf)
+
+
 def candidate_config_paths(entry: GameEntry, *, home: Optional[str] = None) -> List[str]:
     """Paths that *might* hold this game's configuration. Read-only guesswork.
 
@@ -126,13 +142,13 @@ def candidate_config_paths(entry: GameEntry, *, home: Optional[str] = None) -> L
     if base:
         for schema in KNOWN_SCHEMAS:
             for rel in schema.relative_paths:
-                out.append(str(as_path(base) / rel / schema.filename))
+                out.append(_join(base, rel, schema.filename))
     local = home or os.environ.get("LOCALAPPDATA") or ""
     if local and entry.name:
         safe_name = entry.name.replace(":", "").replace("™", "").replace("®", "").strip()
         for schema in KNOWN_SCHEMAS:
             for rel in schema.relative_paths:
-                out.append(str(as_path(local) / safe_name / rel / schema.filename))
+                out.append(_join(str(as_path(local) / safe_name), rel, schema.filename))
     seen, unique = set(), []
     for p in out:
         if p.lower() not in seen:
