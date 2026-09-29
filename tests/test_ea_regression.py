@@ -182,3 +182,29 @@ def test_launch_error_is_mapped_not_swallowed():
                          starter=failing_starter(lt.STATUS_ACCESS_DENIED, "access denied"))
     assert result.status == lt.STATUS_ACCESS_DENIED
     assert "administrator" in result.failure_hint
+
+
+def test_shortcut_launches_go_through_the_shell():
+    """CreateProcess cannot run a .lnk; it must be handed to cmd /c start."""
+    import travelready.launch_tester as lt_mod
+
+    captured = {}
+
+    class FakePopen:
+        def __init__(self, args, **kwargs):
+            captured["args"] = args
+            self.pid = 4242
+
+    entry = GameEntry(name="Shortcut game", launcher="ea",
+                      launch_method="shortcut",
+                      launch_target=r"C:\Users\S\Desktop\Battlefield 3.lnk")
+    import subprocess as sp
+    orig_popen, orig_win = sp.Popen, lt_mod.IS_WINDOWS
+    sp.Popen, lt_mod.IS_WINDOWS = FakePopen, True
+    try:
+        proc, pid, status, err = lt_mod._start_process(entry, lt.build_command(entry))
+    finally:
+        sp.Popen, lt_mod.IS_WINDOWS = orig_popen, orig_win
+    assert status == "" and pid == 4242
+    assert captured["args"][:3] == ["cmd", "/c", "start"]
+    assert captured["args"][-1].endswith(".lnk")

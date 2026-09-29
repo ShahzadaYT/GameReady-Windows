@@ -70,7 +70,14 @@ def backups_dir() -> Path:
 
 
 def resource_dir() -> Path:
-    """Directory holding bundled read-only data (profiles, schemas)."""
+    """Directory holding bundled read-only data (profiles, schemas).
+
+    In a PyInstaller bundle the spec file places package data under
+    ``<_MEIPASS>/travelready/…``, mirroring the source layout, so the same
+    relative paths work frozen and unfrozen.
+    """
     if is_frozen():
-        return Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
+        base = Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
+        bundled = base / "travelready"
+        return bundled if bundled.is_dir() else base
     return Path(__file__).parent

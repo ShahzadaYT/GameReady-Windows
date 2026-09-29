@@ -317,11 +317,13 @@ def _start_process(entry: GameEntry, command) -> tuple[Optional[object], Optiona
 
     Returns ``(popen_or_None, launcher_pid, status_or_empty, error_text)``.
 
-    URI and ``shell:`` targets go through ``cmd /c start``, which is the
-    documented way to hand a target to the shell. For ``shell:AppsFolder\\…``
-    this is the supported Microsoft Store launch route: it asks the shell to
-    activate the registered application. Nothing about the package is read,
-    modified or bypassed.
+    URI, ``shell:`` and ``.lnk`` targets go through ``cmd /c start``, which is
+    the documented way to hand a target to the shell. ``CreateProcess`` cannot
+    run a shortcut directly, so a shortcut launched any other way fails with
+    "not a valid Win32 application". For ``shell:AppsFolder\\…`` this is the
+    supported Microsoft Store launch route: it asks the shell to activate the
+    registered application. Nothing about the package is read, modified or
+    bypassed.
     """
     method = effective_launch_method(entry)
     cwd = entry.working_dir if entry.working_dir and os.path.isdir(entry.working_dir) else None
@@ -329,7 +331,7 @@ def _start_process(entry: GameEntry, command) -> tuple[Optional[object], Optiona
         return None, None, STATUS_UNKNOWN, "Launching is only supported on Windows."
     no_window = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     try:
-        if method in (METHOD_URI, METHOD_SHELL):
+        if method in (METHOD_URI, METHOD_SHELL, METHOD_SHORTCUT):
             proc = subprocess.Popen(
                 ["cmd", "/c", "start", "", command[0]],
                 cwd=cwd, creationflags=no_window,
