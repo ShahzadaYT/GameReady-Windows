@@ -376,3 +376,33 @@ def test_a_substring_hit_never_becomes_an_automatic_match(tmp_path):
 def test_search_returns_nothing_for_an_unrelated_term(tmp_path):
     resolver = _catalogue(tmp_path, ["Cyberpunk 2077", "Elden Ring"])
     assert resolver.search("microsoft excel") == []
+
+
+# -- the settings summary ---------------------------------------------------
+
+def test_the_rendered_plan_counts_every_setting_exactly_once(cached, config):
+    """The summary must account for the whole profile, with nothing double-counted."""
+    entry = GameEntry(name="Example Adventure", launcher="steam")
+    plan = plan_for_game(entry, resolver=SourceResolver(cached))
+    text = render_plan(plan)
+
+    assert "SUMMARY" in text
+    numbers = {}
+    for line in text.splitlines():
+        for label in ("Settings in this profile:", "Already correct:",
+                      "Safe to apply here:", "Needs your review:",
+                      "You must change in-game:", "Not enough information:",
+                      "Protected, never touched:"):
+            if line.startswith(label):
+                numbers[label] = int(line.split(":")[1].strip())
+
+    total = numbers["Settings in this profile:"]
+    parts = sum(v for k, v in numbers.items() if k != "Settings in this profile:")
+    assert parts == total, f"{parts} categorised but {total} settings exist"
+
+
+def test_the_summary_states_what_the_user_must_do_themselves(cached, config):
+    entry = GameEntry(name="Example Adventure", launcher="steam")
+    text = render_plan(plan_for_game(entry, resolver=SourceResolver(cached)))
+    assert "You must change in-game:" in text
+    assert "Safe to apply here:" in text

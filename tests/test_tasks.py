@@ -200,3 +200,52 @@ def test_describe_distinguishes_the_outcomes(runner):
     bad = run_now(runner, lambda ctx: (_ for _ in ()).throw(OSError("denied")))
     assert "finished" in ok.describe()
     assert "failed" in bad.describe() and "denied" in bad.describe()
+
+
+# -- adopting the caller's cancel flag --------------------------------------
+
+def test_a_task_can_adopt_an_existing_stop_event(runner):
+    """A worker reading a long-lived flag must see the one Cancel sets.
+
+    Assigning the task's own event to that attribute after start() returns is
+    a race: the thread may already have read the old one, and cancelling then
+    sets a flag nobody is watching.
+    """
+    shared = threading.Event()
+    task = runner.start("Test", lambda ctx: None, stop_event=shared, thread=False)
+    runner.pump()
+    assert task.stop_event is shared
+
+
+def test_adopting_a_stop_event_clears_it_first(runner):
+    """A flag left set by the previous run must not cancel this one."""
+    shared = threading.Event()
+    shared.set()
+    seen = {}
+
+    def work(ctx):
+        seen["cancelled"] = ctx.cancelled
+        return "ran"
+
+    task = runner.start("Test", work, stop_event=shared, thread=False)
+    runner.pump()
+    assert seen["cancelled"] is False
+    assert task.succeeded
+
+
+def test_cancelling_through_the_adopted_event_is_seen_by_the_worker(runner):
+    shared = threading.Event()
+    started = threading.Event()
+
+    def work(ctx):
+        started.set()
+        for _ in range(2000):
+            ctx.check()
+            time.sleep(0.001)
+        return "finished all"
+
+    task = runner.start("Long", work, stop_event=shared)
+    assert started.wait(5)
+    shared.set()                       # the GUI's Stop button
+    runner.wait(timeout=5)
+    assert task.state == CANCELLED

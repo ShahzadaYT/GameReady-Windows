@@ -852,3 +852,47 @@ def test_stop_cancels_the_task_the_runner_is_running(app):
         app.worker.join(timeout=5)
     app.runner.pump()
     assert app.runner.history[-1].cancelled
+
+
+# -- prepare-for-travel preview ---------------------------------------------
+
+def test_prepare_lists_the_games_it_will_touch(app, dialogs, monkeypatch):
+    """A run that starts and closes real games must be recognisable first."""
+    import travelready.gui_app as gui_app
+
+    asked = []
+    monkeypatch.setattr(gui_app.messagebox, "askyesno",
+                        lambda title, message: (asked.append(message), False)[1])
+    app._on_select_all()
+    app._on_prepare_travel()
+
+    assert asked, "the user must be asked before games are started"
+    text = asked[0]
+    assert "•" in text, "the games must be listed, not just counted"
+    assert "more" in text, "a long list must account for the remainder"
+
+
+def test_declining_the_prepare_preview_starts_nothing(app, monkeypatch):
+    import travelready.gui_app as gui_app
+
+    monkeypatch.setattr(gui_app.messagebox, "askyesno", lambda *a, **k: False)
+    app._on_select_all()
+    app._on_prepare_travel()
+    app.root.update()
+    assert not app._busy
+    assert "cancelled" in app.status_label.cget("text").lower()
+
+
+def test_the_preview_list_reports_the_tail_honestly():
+    from travelready.gui_app import _preview_list
+
+    text = _preview_list([f"Game {n}" for n in range(20)], limit=5)
+    assert text.count("•") == 5
+    assert "and 15 more" in text
+
+
+def test_a_short_preview_list_has_no_tail():
+    from travelready.gui_app import _preview_list
+
+    text = _preview_list(["One", "Two"])
+    assert "more" not in text

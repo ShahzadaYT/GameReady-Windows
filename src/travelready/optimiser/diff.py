@@ -190,6 +190,26 @@ def render_plan(plan: ChangePlan) -> str:
             lines.append(f"Also published:     {', '.join(selection.alternatives)}")
     lines.append("")
 
+    # A count per outcome, before the detail. The question a user actually
+    # arrives with is "how much of this can TravelReady do for me, and how
+    # much is mine to do?", and that should not require counting rows.
+    lines.append("-" * 51)
+    lines.append("SUMMARY")
+    lines.append("-" * 51)
+    lines.append("")
+    total = len(plan.changes) + len(plan.already_correct)
+    lines.append(f"Settings in this profile:   {total}")
+    lines.append(f"Already correct:            {len(plan.already_correct)}")
+    lines.append(f"Safe to apply here:         {len(plan.safe)}")
+    if plan.caution:
+        lines.append(f"Needs your review:          {len(plan.caution)}")
+    lines.append(f"You must change in-game:    {len(plan.manual)}")
+    if plan.research:
+        lines.append(f"Not enough information:     {len(plan.research)}")
+    if plan.blocked:
+        lines.append(f"Protected, never touched:   {len(plan.blocked)}")
+    lines.append("")
+
     def section(title: str, rows: Sequence[ProposedChange], marker: str) -> None:
         lines.append("-" * 51)
         lines.append(title)

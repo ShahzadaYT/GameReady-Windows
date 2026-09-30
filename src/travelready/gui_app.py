@@ -54,6 +54,20 @@ from .optimiser.rogallylife.select import (
 
 SETTINGS_FILE = "gui_settings.json"
 
+
+def _preview_list(names, limit: int = 12) -> str:
+    """The first few names, bulleted, with an honest tail count.
+
+    A confirmation dialog that lists 150 games is as unreadable as one that
+    lists none, but "and 138 more" is still an accurate account of what was
+    agreed to.
+    """
+    names = list(names)
+    shown = [f"  \u2022 {name}" for name in names[:limit]]
+    if len(names) > limit:
+        shown.append(f"  \u2026 and {len(names) - limit} more")
+    return "\n".join(shown)
+
 BASE_FONT = ("Segoe UI", 11)
 HEAD_FONT = ("Segoe UI", 20, "bold")
 SUB_FONT = ("Segoe UI", 12)
@@ -1095,18 +1109,18 @@ class TravelReadyGUI:
         self.progress.start(15)
         self._set_status(label)
 
+        # Workers read self.cancel_event when they call into the core, so the
+        # task must adopt that flag before its thread starts — assigning the
+        # task's own event afterwards would race the worker's first read.
         task = self.runner.start(
             label.rstrip("… ").rstrip(),
             lambda ctx: work(),
             on_failure=self._on_task_failed,
-            on_finished=lambda t: self._worker_finished())
+            on_finished=lambda t: self._worker_finished(),
+            stop_event=self.cancel_event)
         if task is None:                       # the runner refused: stay honest
             self._worker_finished()
             return
-        # The cancel event the existing workers watch is the task's own, so
-        # Stop reaches whatever is running without a second flag to keep in
-        # step.
-        self.cancel_event = task.stop_event
         self.worker = self.runner.thread_for(task)
 
     def _on_task_failed(self, task) -> None:
@@ -1294,15 +1308,29 @@ class TravelReadyGUI:
                     "Every game in this tab is already prepared.\n\n"
                     "Enable 'Re-verify' in Settings to check them again.")
                 return
-            detail = (f"TravelReady will work through {len(targets)} game(s), "
-                      f"starting each one, confirming it runs, then closing it.")
+            # Show exactly which games will be touched, not just how many.
+            # This run starts and closes real games, so the user should be
+            # able to recognise the list before agreeing to it.
+            if options.launch:
+                detail = (f"TravelReady will work through {len(targets)} game(s), "
+                          f"starting each one, confirming it runs, then closing "
+                          f"it:")
+            else:
+                detail = (f"Launching needs Windows, so {len(targets)} game(s) "
+                          f"will be assessed without being started:")
+            detail += "\n\n" + _preview_list(
+                [t.canonical_title for t in targets])
             if skipped:
-                detail += (f"\n\n{len(skipped)} game(s) will be skipped because "
-                           f"TravelReady could not close them safely.")
-            if not options.launch:
-                detail = (f"Launching needs Windows, so {len(targets)} game(s) will "
-                          f"be assessed without being started.")
+                # skipped maps identity key -> why, so each line can say which
+                # game and for what reason rather than just a count.
+                by_key = {i.key: i for i in identities}
+                detail += (f"\n\n{len(skipped)} game(s) will be skipped:\n"
+                           + _preview_list(
+                               [f"{by_key[k].canonical_title if k in by_key else k}"
+                                f" — {why}" for k, why in skipped.items()],
+                               limit=6))
             if not messagebox.askyesno("Prepare for Travel", detail + "\n\nContinue?"):
+                self._set_status("Preparation cancelled before it started.")
                 return
 
         def work() -> None:

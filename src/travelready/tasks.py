@@ -209,14 +209,24 @@ class TaskRunner:
               on_progress: Optional[Callable[[Task, Progress], None]] = None,
               on_log: Optional[Callable[[Task, str], None]] = None,
               on_finished: Optional[Callable[[Task], None]] = None,
+              stop_event: Optional[threading.Event] = None,
               thread: bool = True) -> Optional[Task]:
         """Run ``work`` in the background. Returns the :class:`Task`, or ``None``
         if one is already running — a refusal the caller must handle, rather
         than a second thread quietly writing the same files.
+
+        ``stop_event`` adopts a flag the caller already holds, instead of the
+        task making its own. A caller whose worker reads the flag from a
+        long-lived attribute must pass it here: assigning the task's event to
+        that attribute after ``start`` returns is a race, because the thread
+        may already have read the old one.
         """
         if self.busy:
             return None
         task = Task(name=name)
+        if stop_event is not None:
+            stop_event.clear()
+            task.stop_event = stop_event
         task.state = RUNNING
         task.started_at = time.monotonic()
         self.current = task
