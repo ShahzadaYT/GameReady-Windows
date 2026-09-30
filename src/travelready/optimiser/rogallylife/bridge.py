@@ -283,12 +283,32 @@ class SourceResolver:
         return [self.resolve(e, **kwargs) for e in entries]
 
     def search(self, term: str, limit: int = 20) -> List[Tuple[float, SourceGame]]:
-        """Cached games whose title is close to ``term``, best first."""
-        from .matcher import score
+        """Cached games matching ``term``, best first — for a person to read.
 
-        rows = []
+        This is deliberately more generous than :func:`matcher.match`. That
+        function decides whether a game *is* a given title, where a wrong
+        answer silently applies the wrong settings, so it refuses partial
+        matches: "Cyberpunk" is not "Cyberpunk 2077", because "Game" must
+        never become "Game 2".
+
+        Searching is the opposite situation. The person typed the term, reads
+        the results and picks one, so a near miss costs them a glance while a
+        missing row costs them the feature. Substring hits are therefore
+        included, ranked below real matches and never used to associate a game
+        automatically.
+        """
+        from .matcher import normalize_title, score
+
+        needle = normalize_title(str(term or "").strip())
+        rows: List[Tuple[float, SourceGame]] = []
         for game in self.games:
             confidence, _ = score(term, game.title)
+            if confidence <= 0 and needle:
+                haystack = normalize_title(game.title)
+                if needle in haystack:
+                    # Longer overlaps rank higher, but always below a real
+                    # match, so an exact title is never pushed down the list.
+                    confidence = 0.30 * (len(needle) / max(len(haystack), 1))
             if confidence > 0:
                 rows.append((confidence, game))
         rows.sort(key=lambda r: (-r[0], r[1].title))

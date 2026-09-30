@@ -485,3 +485,151 @@ def test_the_dashboard_follows_the_tab(app):
     app.root.update()
     steam_total = int(app.dashboard_label.cget("text").split()[0])
     assert 0 < steam_total < all_total
+
+
+# -- searching the recommendation source ------------------------------------
+
+@pytest.fixture
+def app_with_source(app, tmp_path):
+    """The app with a small cached catalogue, including an uninstalled game."""
+    from travelready.optimiser.rogallylife.model import (
+        SourceGame, SourceProfile, SourceSetting,
+    )
+
+    def game(title, slug, settings=True):
+        profiles = ()
+        if settings:
+            profiles = [SourceProfile(
+                name="Balanced",
+                settings=[SourceSetting(label="Resolution", value="1280x720"),
+                          SourceSetting(label="Texture Quality", value="Medium")])]
+        return SourceGame(
+            title=title,
+            source_url=f"https://rogallylife.com/2026/01/01/{slug}/",
+            device_family="rog_ally_family", last_updated="2026-01-01",
+            profiles=profiles)
+
+    for entry_game in (game("Elden Ring", "elden-ring"),
+                       game("Cyberpunk 2077", "cyberpunk-2077"),
+                       game("No Tables Here", "no-tables", settings=False)):
+        app.source_cache.put(entry_game)
+    app.source_cache.save_index()
+    app.resolver = app._build_resolver()
+    return app
+
+
+def test_searching_finds_a_game_that_is_not_installed(app_with_source):
+    """Reported: no way to look up a game the scan did not find."""
+    app = app_with_source
+    app.source_search_var.set("elden ring")
+    app._on_source_search()
+    app.root.update()
+
+    rows = app.source_results.get_children()
+    assert rows, "a cached game must be findable"
+    titles = [app.source_results.item(r, "text") for r in rows]
+    assert "Elden Ring" in titles
+
+
+def test_search_results_say_whether_a_game_is_in_the_library(app_with_source):
+    app = app_with_source
+    app.source_search_var.set("elden ring")
+    app._on_source_search()
+    app.root.update()
+    row = app.source_results.get_children()[0]
+    assert app.source_results.item(row, "values")[0] in ("yes", "no")
+
+
+def test_searching_never_adds_anything_to_the_library(app_with_source):
+    """The library records what is installed; a search result is not that."""
+    app = app_with_source
+    before_entries = [e.name for e in app.entries]
+    before_games = len(app.identities)
+
+    app.source_search_var.set("elden ring")
+    app._on_source_search()
+    app.root.update()
+    rows = app.source_results.get_children()
+    app.source_results.selection_set(rows[0])
+    app.root.update()
+
+    assert [e.name for e in app.entries] == before_entries
+    assert len(app.identities) == before_games
+
+
+def test_searching_does_not_write_the_library_file(app_with_source, tmp_path):
+    """games.json must be untouched by a look-up."""
+    library = tmp_path / "games.json"
+    before = library.read_bytes()
+
+    app = app_with_source
+    app.source_search_var.set("cyberpunk")
+    app._on_source_search()
+    app.root.update()
+    rows = app.source_results.get_children()
+    app.source_results.selection_set(rows[0])
+    app.root.update()
+
+    assert library.read_bytes() == before, "games.json must not be rewritten"
+
+
+def test_selecting_a_result_shows_its_published_settings(app_with_source):
+    app = app_with_source
+    app.source_search_var.set("elden ring")
+    app._on_source_search()
+    app.root.update()
+    app.source_results.selection_set(app.source_results.get_children()[0])
+    app.root.update()
+
+    text = app.source_detail.get("1.0", "end")
+    assert "Resolution" in text and "1280x720" in text
+    assert "rogallylife.com" in text, "the source must be attributed"
+
+
+def test_an_uninstalled_result_says_it_will_not_be_changed(app_with_source):
+    app = app_with_source
+    app.source_search_var.set("elden ring")
+    app._on_source_search()
+    app.root.update()
+    app.source_results.selection_set(app.source_results.get_children()[0])
+    app.root.update()
+    text = app.source_detail.get("1.0", "end")
+    assert "not in your library" in text
+
+
+def test_a_page_without_a_settings_table_says_so_rather_than_nothing(app_with_source):
+    app = app_with_source
+    app.source_search_var.set("no tables here")
+    app._on_source_search()
+    app.root.update()
+    rows = app.source_results.get_children()
+    assert rows
+    app.source_results.selection_set(rows[0])
+    app.root.update()
+    text = app.source_detail.get("1.0", "end")
+    assert "no usable settings" in text
+    assert "fact about the page" in text
+
+
+def test_an_empty_cache_is_not_reported_as_no_recommendations(app):
+    """'Nothing downloaded yet' must not read as 'this game has none'."""
+    app.source_search_var.set("elden ring")
+    app._on_source_search()
+    app.root.update()
+    text = app.source_detail.get("1.0", "end")
+    assert app.source_results.get_children() == ()
+    lower = text.lower()
+    assert "nothing has been checked yet" in lower
+    # The phrase may appear only where it is being denied, never as a verdict.
+    assert "not a statement that these games have no recommendations" in lower
+    assert "press \u201cupdate" in lower
+
+
+def test_a_miss_against_a_populated_cache_explains_the_difference(app_with_source):
+    app = app_with_source
+    app.source_search_var.set("zzzz nonexistent zzzz")
+    app._on_source_search()
+    app.root.update()
+    text = app.source_detail.get("1.0", "end")
+    assert "cached here" in text
+    assert "run an update" in text.lower()

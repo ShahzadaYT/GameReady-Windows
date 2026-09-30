@@ -44,6 +44,7 @@ from .optimiser.rogallylife import bridge as ral_bridge
 from .optimiser.rogallylife import sync as ral_sync
 from .optimiser.rogallylife.cache import ProfileCache
 from .optimiser.rogallylife.client import RogAllyLifeClient
+from .optimiser.rogallylife import select as ral_select
 from .optimiser.rogallylife.select import (
     MODE_BALANCED, MODE_BATTERY, MODE_PERFORMANCE, OPERATING_MODES,
 )
@@ -295,6 +296,10 @@ class TravelReadyGUI:
         right.add(optimise, text="Game settings")
         self._build_optimiser_panel(optimise)
 
+        find = ttk.Frame(right, padding=8)
+        right.add(find, text=f"Find in {SOURCE_NAME}")
+        self._build_source_search_panel(find)
+
         diag = ttk.Frame(right, padding=8)
         right.add(diag, text="Diagnostics")
         self.diag_text = tk.Text(diag, wrap="word", font=MONO_FONT, height=12,
@@ -421,6 +426,147 @@ class TravelReadyGUI:
         else:
             text = f"{count} of {visible} selected"
         self.selection_label.configure(text=text)
+
+    def _build_source_search_panel(self, parent: ttk.Frame) -> None:
+        """Search the recommendation source, whether or not a game is installed.
+
+        This is a *reference* view. Looking up a game you do not own, or that
+        TravelReady did not detect, must never add it to the library: the
+        library records what is installed on this device, and a search result
+        is not evidence of that. Nothing here writes ``games.json``.
+        """
+        ttk.Label(parent, text=f"Search {SOURCE_NAME} for a game's recommended "
+                               f"settings.", font=SUB_FONT).pack(anchor="w")
+
+        bar = ttk.Frame(parent)
+        bar.pack(fill="x", pady=6)
+        self.source_search_var = tk.StringVar()
+        box = ttk.Entry(bar, textvariable=self.source_search_var)
+        box.pack(side="left", fill="x", expand=True)
+        box.bind("<Return>", lambda _e: self._on_source_search())
+        ttk.Button(bar, text="Search",
+                   command=self._on_source_search).pack(side="left", padx=4)
+
+        columns = ("installed", "profiles", "updated")
+        self.source_results = ttk.Treeview(parent, columns=columns,
+                                           show="tree headings", height=8,
+                                           selectmode="browse")
+        self.source_results.heading("#0", text="Game")
+        self.source_results.column("#0", width=240, minwidth=160)
+        for name, title, width in (("installed", "In your library", 110),
+                                   ("profiles", "Profiles", 70),
+                                   ("updated", "Source updated", 110)):
+            self.source_results.heading(name, text=title)
+            self.source_results.column(name, width=width, anchor="w")
+        self.source_results.pack(fill="both", expand=True)
+        self.source_results.bind("<<TreeviewSelect>>", self._on_source_result_selected)
+        #: row id -> the catalogue entry it shows. Kept apart from the library
+        #: on purpose: these games are not claimed to be installed.
+        self.source_result_games: Dict[str, object] = {}
+
+        self.source_detail = tk.Text(parent, wrap="word", font=BASE_FONT, height=12,
+                                     relief="flat", background="#f7f7f8")
+        self.source_detail.pack(fill="both", expand=True, pady=(6, 0))
+        self._set_text(self.source_detail,
+                       f"Type a game's name and press Search.\n\n"
+                       f"This searches the {SOURCE_NAME} data cached on this "
+                       f"device, so it works offline. Results are for reference: "
+                       f"looking a game up here never adds it to your library.")
+
+    def _on_source_search(self) -> None:
+        term = self.source_search_var.get().strip()
+        self.source_results.delete(*self.source_results.get_children())
+        self.source_result_games.clear()
+        if not term:
+            return
+
+        matches = self.resolver.search(term, limit=25)
+        # Which results correspond to games already in the library? Reported,
+        # never acted on.
+        installed = {m.canonical_title.lower() for m in self.identities}
+        for confidence, game in matches:
+            mine = "yes" if game.title.lower() in installed else "no"
+            iid = self.source_results.insert(
+                "", "end", text=game.title,
+                values=(mine, len(game.profiles), game.last_updated or "unknown"))
+            self.source_result_games[iid] = game
+
+        if not matches:
+            stats = self.source_cache.stats()
+            if not stats.get("entries"):
+                message = (
+                    f"No {SOURCE_NAME} data is cached on this device yet, so "
+                    f"there is nothing to search.\n\n"
+                    f"Press “Update {SOURCE_NAME}” to download it. "
+                    f"This is not a statement that these games have no "
+                    f"recommendations — nothing has been checked yet.")
+            else:
+                message = (
+                    f"No game matching “{term}” is in the "
+                    f"{SOURCE_NAME} data cached here ({stats['entries']} games).\n\n"
+                    f"The source may cover it without this cache being current; "
+                    f"run an update, or try a shorter part of the name.")
+            self._set_text(self.source_detail, message)
+            self._set_status(f"No {SOURCE_NAME} match for “{term}”.")
+        else:
+            self._set_status(f"{len(matches)} {SOURCE_NAME} result(s) "
+                             f"for “{term}”.")
+
+    def _on_source_result_selected(self, _event=None) -> None:
+        selected = self.source_results.selection()
+        if not selected:
+            return
+        game = self.source_result_games.get(selected[0])
+        if game is None:
+            return
+        self._set_text(self.source_detail, self._describe_source_game(game))
+
+    def _describe_source_game(self, game) -> str:
+        """The published recommendation for one catalogue game, verbatim.
+
+        Settings are shown exactly as the source published them. Nothing is
+        extrapolated for a device or a profile the source did not cover.
+        """
+        lines = [game.title, ""]
+        lines.append(f"Source:         {SOURCE_NAME}")
+        lines.append(f"URL:            {game.source_url}")
+        if game.last_updated:
+            lines.append(f"Source updated: {game.last_updated}")
+        lines.append(f"Device family:  {game.device_family}")
+        lines.append("")
+
+        if not game.profiles:
+            lines.append("This page is in the cache, but no usable settings table "
+                         "could be read from it.")
+            lines.append("")
+            lines.append("That is a fact about the page, not a recommendation to "
+                         "leave the game unconfigured.")
+            return "\n".join(lines)
+
+        selection = ral_select.select_profile(
+            game, self.settings.operating_mode,
+            max_watts=self.settings.max_watts or None)
+        for profile in game.profiles:
+            marker = ("  ← best for "
+                      f"{self.settings.operating_mode}"
+                      if selection.profile is profile else "")
+            lines.append(f"{profile.label}{marker}")
+            for setting in profile.settings:
+                lines.append(f"    {setting.label:<26} {setting.value}")
+            lines.append("")
+
+        if selection.reason:
+            lines.append(f"Chosen profile: {selection.reason}")
+            lines.append("")
+
+        if game.title.lower() in {i.canonical_title.lower() for i in self.identities}:
+            lines.append("This game is in your library — open it in the game list "
+                         "to compare these settings with the ones on disk.")
+        else:
+            lines.append("This game is not in your library. TravelReady only "
+                         "changes settings for games it found installed on this "
+                         "device, and searching here does not add it.")
+        return "\n".join(lines)
 
     def _build_optimiser_panel(self, parent: ttk.Frame) -> None:
         mode_bar = ttk.Frame(parent)

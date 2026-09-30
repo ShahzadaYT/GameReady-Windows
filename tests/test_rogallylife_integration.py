@@ -329,3 +329,50 @@ def test_coverage_never_reports_junk_as_a_game():
     report = title_only_report(entries)
     matched = {r.game for r in report.rows if r.confidence >= 0.90}
     assert not ({"Calculator", "Notepad", "Windows Security"} & matched)
+
+
+# -- searching is not matching ----------------------------------------------
+
+def _catalogue(tmp_path, titles):
+    cache = ProfileCache(tmp_path / "search-cache")
+    for n, title in enumerate(titles):
+        cache.put(SourceGame(
+            title=title,
+            source_url=f"https://rogallylife.com/2026/01/0{n + 1}/g{n}-rog-ally/",
+            device_family="rog_ally_family",
+            profiles=[SourceProfile(name="Balanced",
+                                    settings=[SourceSetting(label="Resolution",
+                                                            value="1280x720")])]))
+    cache.save_index()
+    return SourceResolver(cache)
+
+
+def test_search_finds_a_game_from_part_of_its_name(tmp_path):
+    """A person typing 'cyberpunk' must find 'Cyberpunk 2077'."""
+    resolver = _catalogue(tmp_path, ["Cyberpunk 2077", "Elden Ring"])
+    found = [g.title for _, g in resolver.search("cyberpunk")]
+    assert "Cyberpunk 2077" in found
+
+
+def test_search_ranks_an_exact_title_above_a_substring(tmp_path):
+    resolver = _catalogue(tmp_path, ["Doom Eternal", "Doom"])
+    found = [g.title for _, g in resolver.search("Doom")]
+    assert found[0] == "Doom"
+
+
+def test_a_substring_hit_never_becomes_an_automatic_match(tmp_path):
+    """The generosity of search must not leak into automatic association.
+
+    Applying settings to the wrong game is worse than applying none, so the
+    matcher still refuses a partial title even though search accepts it.
+    """
+    resolver = _catalogue(tmp_path, ["Cyberpunk 2077"])
+    assert resolver.search("cyberpunk"), "search finds it"
+
+    resolution = resolver.resolve(GameEntry(name="Cyberpunk", launcher="steam"))
+    assert resolution.profile is None, "but it is not applied automatically"
+
+
+def test_search_returns_nothing_for_an_unrelated_term(tmp_path):
+    resolver = _catalogue(tmp_path, ["Cyberpunk 2077", "Elden Ring"])
+    assert resolver.search("microsoft excel") == []
