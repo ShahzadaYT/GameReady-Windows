@@ -39,6 +39,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from . import SOURCE_BASE
+from .budget import Budget
 from .model import device_family_from_url
 
 USER_AGENT = (
@@ -166,25 +167,49 @@ class RogAllyLifeClient:
             raise FetchError(f"refusing to fetch {url}: host is not {allowed}")
         return url
 
-    def _throttle(self) -> None:
+    def _throttle(self, budget: Optional[Budget] = None) -> None:
+        """Wait out the politeness delay, remaining cancellable while we do.
+
+        The delay is real and deliberate — the source is someone else's server
+        — but it must not be the reason Cancel takes a second to be noticed, so
+        the wait is sliced and checked rather than slept through in one go.
+        """
         delay = self.delay
         if self._robots and self._robots.crawl_delay:
             delay = max(delay, self._robots.crawl_delay)
         elapsed = time.time() - self._last_request
         if self._last_request and elapsed < delay:
-            self._sleep(delay - elapsed)
+            wait = delay - elapsed
+            if budget is not None:
+                budget.sleep(wait, self._sleep)
+            else:
+                self._sleep(wait)
         self._last_request = time.time()
 
-    def robots(self) -> RobotsPolicy:
+    def _backoff(self, seconds: float, budget: Optional[Budget]) -> None:
+        """Retry backoff, bounded by the budget for the same reason."""
+        if budget is not None:
+            budget.sleep(seconds, self._sleep)
+        else:
+            self._sleep(seconds)
+
+    def robots(self, *, budget: Optional[Budget] = None) -> RobotsPolicy:
+        """The site's robots policy, fetched once and cached.
+
+        This fetch is bound by the same budget as everything else: it is the
+        first request of any run, so an unresponsive server here would burn the
+        whole deadline before a single post was considered.
+        """
         if self._robots is None:
             try:
-                response = self._raw(self._absolute("robots.txt"))
+                response = self._raw(self._absolute("robots.txt"), budget=budget)
                 self._robots = RobotsPolicy(response.body, fetched=True)
             except FetchError:
                 self._robots = RobotsPolicy("")
         return self._robots
 
-    def _raw(self, url: str, *, etag: str = "", last_modified: str = "") -> Response:
+    def _raw(self, url: str, *, etag: str = "", last_modified: str = "",
+             budget: Optional[Budget] = None) -> Response:
         headers = {
             "User-Agent": USER_AGENT,
             "Accept": "application/json, text/html;q=0.9, */*;q=0.5",
@@ -197,11 +222,17 @@ class RogAllyLifeClient:
 
         last_error: Optional[Exception] = None
         for attempt in range(MAX_RETRIES):
-            self._throttle()
+            if budget is not None:
+                budget.check()
+            self._throttle(budget)
             request = urllib.request.Request(url, headers=headers, method="GET")
+            # Never let one request outlive the whole operation's deadline.
+            timeout = self.timeout
+            if budget is not None and budget.remaining is not None:
+                timeout = max(1.0, min(float(timeout), budget.remaining))
             try:
                 self.requests_made += 1
-                with self._opener(request, timeout=self.timeout) as raw:
+                with self._opener(request, timeout=timeout) as raw:
                     payload = raw.read()
                     if (raw.headers.get("Content-Encoding") or "").lower() == "gzip":
                         payload = gzip.decompress(payload)
@@ -222,7 +253,7 @@ class RogAllyLifeClient:
                 last_error = exc
                 if exc.code in (429, 500, 502, 503, 504) and attempt < MAX_RETRIES - 1:
                     wait = float(exc.headers.get("Retry-After") or 0) or (2 ** attempt)
-                    self._sleep(min(wait, 30))
+                    self._backoff(min(wait, 30), budget)
                     continue
                 raise FetchError(f"{url}: HTTP {exc.code}", status=exc.code,
                                  blocked=exc.code in (401, 403)) from exc
@@ -230,51 +261,61 @@ class RogAllyLifeClient:
                 last_error = exc
                 reason = str(getattr(exc, "reason", exc))
                 if attempt < MAX_RETRIES - 1:
-                    self._sleep(2 ** attempt)
+                    self._backoff(2 ** attempt, budget)
                     continue
                 raise FetchError(f"{url}: {reason}", blocked=True) from exc
             except OSError as exc:
                 last_error = exc
                 if attempt < MAX_RETRIES - 1:
-                    self._sleep(2 ** attempt)
+                    self._backoff(2 ** attempt, budget)
                     continue
                 raise FetchError(f"{url}: {exc}", blocked=True) from exc
         raise FetchError(f"{url}: {last_error}", blocked=True)
 
-    def get(self, path: str, *, etag: str = "", last_modified: str = "") -> Response:
+    def get(self, path: str, *, etag: str = "", last_modified: str = "",
+            budget: Optional[Budget] = None) -> Response:
         """Fetch a path, refusing anything ``robots.txt`` disallows."""
         url = self._absolute(path)
-        if self._respect_robots and not self.robots().allows(url):
+        if self._respect_robots and not self.robots(budget=budget).allows(url):
             raise FetchError(f"{url}: disallowed by robots.txt")
-        return self._raw(url, etag=etag, last_modified=last_modified)
+        return self._raw(url, etag=etag, last_modified=last_modified, budget=budget)
 
     # -- WordPress REST API ------------------------------------------------
 
-    def rest(self, endpoint: str, **params) -> Response:
+    def rest(self, endpoint: str, *, budget: Optional[Budget] = None,
+             **params) -> Response:
         query = urllib.parse.urlencode(
             {k: v for k, v in params.items() if v not in (None, "")}, doseq=True)
         path = REST_ROOT + endpoint.lstrip("/") + (f"?{query}" if query else "")
-        return self.get(path)
+        return self.get(path, budget=budget)
 
-    def rest_available(self) -> bool:
+    def rest_available(self, *, budget: Optional[Budget] = None) -> bool:
         """Is the REST API reachable and returning JSON?"""
         try:
-            response = self.rest("types")
+            response = self.rest("types", budget=budget)
             return response.status == 200 and response.body.lstrip().startswith("{")
         except (FetchError, ValueError):
             return False
 
     def list_posts(self, *, per_page: int = 50, max_pages: int = 40,
-                   search: str = "", modified_after: str = "") -> List[dict]:
+                   search: str = "", modified_after: str = "",
+                   budget: Optional[Budget] = None) -> List[dict]:
         """Every settings post via the REST API, following pagination.
 
         Posts are filtered to those whose URL identifies a device family, so
         news and guides are ignored.
+
+        ``budget`` stops the walk early rather than aborting it: the pages
+        already collected are returned, because a partial listing still lets
+        the sync make progress, and the report says the run was incomplete.
         """
         out: List[dict] = []
         for page in range(1, max_pages + 1):
+            if budget is not None and (budget.cancelled or budget.expired):
+                break
             response = self.rest("posts", per_page=per_page, page=page,
                                  search=search, modified_after=modified_after,
+                                 budget=budget,
                                  orderby="modified", order="desc",
                                  _fields="id,slug,link,title,date_gmt,modified_gmt,"
                                          "content,excerpt,categories,featured_media")
@@ -303,11 +344,13 @@ class RogAllyLifeClient:
 
     # -- sitemap -----------------------------------------------------------
 
-    def sitemap_urls(self) -> List[Tuple[str, str]]:
+    def sitemap_urls(self, *, budget: Optional[Budget] = None) -> List[Tuple[str, str]]:
         """``(url, lastmod)`` for settings posts, from the sitemap."""
         for candidate in SITEMAP_PATHS:
+            if budget is not None and (budget.cancelled or budget.expired):
+                break
             try:
-                response = self.get(candidate)
+                response = self.get(candidate, budget=budget)
             except FetchError:
                 continue
             if response.status != 200 or "<" not in response.body:
@@ -317,8 +360,10 @@ class RogAllyLifeClient:
             if nested and not any(device_family_from_url(u) for u, _ in found):
                 collected: List[Tuple[str, str]] = []
                 for child in nested[:20]:
+                    if budget is not None and (budget.cancelled or budget.expired):
+                        break
                     try:
-                        child_response = self.get(child)
+                        child_response = self.get(child, budget=budget)
                     except FetchError:
                         continue
                     collected.extend(_parse_sitemap(child_response.body))
@@ -331,17 +376,22 @@ class RogAllyLifeClient:
     # -- HTML fallbacks ----------------------------------------------------
 
     def index_urls(self, device_family: str = "rog_ally_family",
-                   *, max_pages: int = 30) -> List[Tuple[str, str]]:
+                   *, max_pages: int = 30,
+                   budget: Optional[Budget] = None) -> List[Tuple[str, str]]:
         """``(title, url)`` from the index and category archive pages."""
         from .parser import parse_index
 
         out: List[Tuple[str, str]] = []
         seen = set()
         for path in INDEX_PATHS.get(device_family, ()):
+            if budget is not None and (budget.cancelled or budget.expired):
+                break
             for page in range(1, max_pages + 1):
+                if budget is not None and (budget.cancelled or budget.expired):
+                    break
                 target = path if page == 1 else f"{path.rstrip('/')}/page/{page}/"
                 try:
-                    response = self.get(target)
+                    response = self.get(target, budget=budget)
                 except FetchError as exc:
                     # A 404 just means the archive ended. A blocked host means
                     # we learned nothing, and the caller must be able to tell
@@ -359,9 +409,10 @@ class RogAllyLifeClient:
                     out.append((title, url))
         return out
 
-    def fetch_post(self, url: str, *, etag: str = "", last_modified: str = ""):
-        """Fetch one post's HTML."""
-        return self.get(url, etag=etag, last_modified=last_modified)
+    def fetch_post(self, url: str, *, etag: str = "", last_modified: str = "",
+                   budget: Optional[Budget] = None):
+        """Fetch one post's HTML, conditionally when validators are supplied."""
+        return self.get(url, etag=etag, last_modified=last_modified, budget=budget)
 
 
 def _parse_sitemap(xml: str) -> List[Tuple[str, str]]:

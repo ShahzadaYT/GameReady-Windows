@@ -142,10 +142,18 @@ class ProfileCache:
         except (OSError, ValueError, TypeError, KeyError):
             return None
 
-    def put(self, game: SourceGame) -> str:
-        """Cache one game and update the index. Returns its key."""
+    def put(self, game: SourceGame, *, etag: str = "",
+            last_modified: str = "") -> str:
+        """Cache one game and update the index. Returns its key.
+
+        ``etag`` and ``last_modified`` are the HTTP validators the response
+        carried. Storing them is what makes the next sync cheap: they are sent
+        back as ``If-None-Match`` / ``If-Modified-Since``, and an unchanged post
+        then costs one 304 instead of a full page fetch and re-parse.
+        """
         key = entry_key(game)
         atomic_write(self.path_for(key), json.dumps(game.to_dict(), indent=2))
+        previous = self.index.entries.get(key, {})
         self.index.entries[key] = {
             "title": game.title,
             "source_url": game.source_url,
@@ -155,9 +163,30 @@ class ProfileCache:
             "retrieved_at": game.retrieved_at,
             "parser_version": game.parser_version,
             "profiles": len(game.profiles),
+            # Keep the previous validator when the response carried none, so a
+            # server that only sometimes sends an ETag does not lose it.
+            "etag": etag or previous.get("etag", ""),
+            "http_last_modified": last_modified or previous.get("http_last_modified", ""),
         }
         self.index.parser_version = max(self.index.parser_version, game.parser_version)
         return key
+
+    def validators_for(self, key: str,
+                       parser_version: Optional[int] = None) -> Tuple[str, str]:
+        """The stored ``(etag, last_modified)`` for conditional requests.
+
+        Returns empty strings when the entry is missing or was cached by an
+        older parser than ``parser_version``. In that case the post must be
+        re-parsed even if its bytes are identical, so asking the server for a
+        304 would be exactly the wrong question.
+        """
+        record = self.index.entries.get(key)
+        if not record or not self.has(key):
+            return "", ""
+        wanted = self.index.parser_version if parser_version is None else parser_version
+        if int(record.get("parser_version", 0) or 0) < int(wanted):
+            return "", ""
+        return record.get("etag", "") or "", record.get("http_last_modified", "") or ""
 
     def remove(self, key: str) -> bool:
         removed = False
