@@ -24,7 +24,7 @@ src/travelready/
     rogallylife/            the recommendation source adapter
 ```
 
-## Five rules shape the layout
+## Seven rules shape the layout
 
 ### 1. "Cannot determine" is not "no"
 
@@ -68,6 +68,46 @@ installed from Steam and Xbox looks up one recommendation, not two.
 dependencies as parameters, so the detection state machine, the sync and the
 preparation orchestrator are unit-tested off Windows. `textnorm.as_path` parses
 Windows paths on any host, so the tests exercise the logic the device runs.
+
+### 6. Derived state owns its own invalidation
+
+The window renders games (`identities`), which are derived from stored entries
+(`entries`). For a while, three code paths mutated the entries and each was
+expected to rebuild the derived data by hand. Two did. The third — the scan
+handler — did not, so scanned games appeared only after a restart.
+
+The fix is not the missing call. `AppState` owns the library and everything
+derived from it, and the only way to change the library is `set_entries`,
+which drops the derived caches and publishes an event. A handler cannot forget
+to invalidate, because handlers do not invalidate.
+
+Views subscribe to `LibraryChanged`, `ScanCompleted`, `SettingsSyncCompleted`,
+`ReadinessChanged`, `GameSelectionChanged`, `FilterChanged` and
+`StatusChanged`. None of them keeps a copy of anything. Readiness is still
+computed once per game and cached — a repaint that re-assessed 149 games on
+the UI thread is what made tab switching slow — but the cache belongs to the
+model that knows when it is stale.
+
+`AppState` imports no tkinter, so the whole model, including filtering,
+sorting and bulk selection, is tested without a display.
+
+### 7. Long work is cancellable and bounded, and says which of three things happened
+
+Every background operation runs through one `TaskRunner`: scanning, launch
+testing, preparation, source refresh. Each ends as exactly one of `SUCCEEDED`,
+`CANCELLED` or `FAILED`, and those are never collapsed. A worker that returns
+normally after a cancel is reported cancelled, not complete — reporting
+success would claim a full run over partial data.
+
+Exceptions are caught at the thread boundary and delivered to a callback with
+their traceback. Nothing logs-and-continues, because an exception escaping a
+worker thread vanishes into stderr and leaves the window spinning.
+
+Network work additionally carries a `Budget`: a deadline plus the cancel flag,
+checked *inside* requests rather than only between them, and clipping both the
+socket timeout and any retry backoff. A run that stops early saves what it has
+and reports a partial result. That is rule 1 again in a different costume: "we
+could not finish" must never be shown as "there is nothing there".
 
 ## The preparation model
 
