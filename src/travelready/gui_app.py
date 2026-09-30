@@ -725,7 +725,11 @@ class TravelReadyGUI:
                 report = ral_sync.sync(
                     RogAllyLifeClient(), cache,
                     device_family=ral_bridge.family_for_device(TARGET_DEVICE),
-                    progress=lambda m: self.ui_queue.put(("log", m)),
+                    # Stages go to the status line as well as the log, so the
+                    # window says what it is doing rather than only "Updating…".
+                    progress=lambda m: self.ui_queue.put(("stage", m)),
+                    on_item=lambda done, total:
+                        self.ui_queue.put(("progress", (done, total))),
                     stop_event=self.cancel_event)
                 self.ui_queue.put(("source_synced", report))
             except Exception as exc:
@@ -1066,6 +1070,11 @@ class TravelReadyGUI:
         self.test_button.configure(state="disabled")
         self.prepare_button.configure(state="disabled")
         self.cancel_button.configure(state="normal")
+        # Until the work reports a total, the bar sweeps rather than sitting at
+        # zero: "working, no idea how long" and "not started" must look
+        # different, or a long first stage reads as a hang.
+        self.progress.configure(mode="indeterminate", value=0)
+        self.progress.start(15)
         self._set_status(label)
         self.worker = threading.Thread(target=work, daemon=True)
         self.worker.start()
@@ -1075,7 +1084,8 @@ class TravelReadyGUI:
         self.test_button.configure(state="normal")
         self.prepare_button.configure(state="normal")
         self.cancel_button.configure(state="disabled")
-        self.progress.configure(value=0)
+        self.progress.stop()
+        self.progress.configure(mode="determinate", value=0)
 
     def _poll_ui_queue(self) -> None:
         try:
@@ -1085,8 +1095,17 @@ class TravelReadyGUI:
                     self._log(payload)
                 elif kind == "status":
                     self._set_status(payload)
+                elif kind == "stage":
+                    # A stage is worth both: the status line for "what now",
+                    # the log for "what happened".
+                    self._log(payload)
+                    self._set_status(payload)
                 elif kind == "progress":
+                    # A known total turns the sweep into a real measure.
                     done, total = payload
+                    if str(self.progress.cget("mode")) == "indeterminate":
+                        self.progress.stop()
+                        self.progress.configure(mode="determinate")
                     self.progress.configure(maximum=max(total, 1), value=done)
                 elif kind == "scanned":
                     self._on_scanned(payload)

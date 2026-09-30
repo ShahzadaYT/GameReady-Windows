@@ -698,3 +698,70 @@ def test_opening_the_data_folder_uses_the_shell_not_a_command_line(app, monkeypa
                         raising=False)
     app._on_open_log_folder()
     assert opened, "the folder must be opened"
+
+
+# -- long operations report three states ------------------------------------
+
+def test_a_running_task_sweeps_before_a_total_is_known(app, monkeypatch):
+    """'Working, duration unknown' must not look like 'not started'."""
+    import threading
+
+    release = threading.Event()
+    app._start_worker(lambda: release.wait(5), "Working…")
+    app.root.update()
+    try:
+        assert str(app.progress.cget("mode")) == "indeterminate"
+        assert str(app.cancel_button.cget("state")) == "normal"
+    finally:
+        release.set()
+        if app.worker:
+            app.worker.join(timeout=5)
+
+
+def test_a_known_total_switches_the_bar_to_a_real_measure(app):
+    app._start_worker(lambda: None, "Working…")
+    app.ui_queue.put(("progress", (3, 10)))
+    app._poll_ui_queue()
+    app.root.update()
+    assert str(app.progress.cget("mode")) == "determinate"
+    assert app.progress.cget("value") == 3
+    assert app.progress.cget("maximum") == 10
+    app._worker_finished()
+
+
+def test_finishing_resets_the_bar_and_re_enables_the_buttons(app):
+    app._start_worker(lambda: None, "Working…")
+    if app.worker:
+        app.worker.join(timeout=5)
+    app._worker_finished()
+    app.root.update()
+    assert app.progress.cget("value") == 0
+    assert str(app.scan_button.cget("state")) == "normal"
+    assert str(app.cancel_button.cget("state")) == "disabled"
+
+
+def test_sync_stages_reach_the_status_line_not_only_the_log(app):
+    """Reported: the window said 'Updating…' and nothing else, forever."""
+    app.ui_queue.put(("stage", "Trying the sitemap…"))
+    app._poll_ui_queue()
+    app.root.update()
+    assert "sitemap" in app.status_label.cget("text")
+    assert "sitemap" in app.diag_text.get("1.0", "end")
+
+
+def test_the_update_worker_asks_for_per_item_progress(app, monkeypatch):
+    import travelready.gui_app as gui_app
+
+    captured = {}
+
+    def fake_sync(client, cache, **kwargs):
+        captured.update(kwargs)
+        from travelready.optimiser.rogallylife.sync import SyncReport
+        return SyncReport()
+
+    monkeypatch.setattr(gui_app.ral_sync, "sync", fake_sync)
+    app._on_update_source()
+    if app.worker:
+        app.worker.join(timeout=5)
+    assert captured.get("on_item") is not None, "the bar needs item counts"
+    assert captured.get("progress") is not None, "stages need reporting"

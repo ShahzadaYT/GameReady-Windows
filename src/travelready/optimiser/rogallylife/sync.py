@@ -218,6 +218,7 @@ def sync(client: RogAllyLifeClient, cache: ProfileCache,
          titles: Optional[Sequence[str]] = None,
          force: bool = False, limit: Optional[int] = None,
          progress: Progress = None,
+         on_item: Optional[Callable[[int, int], None]] = None,
          stop_event: Optional[StopEvent] = None,
          budget_seconds: Optional[float] = DEFAULT_BUDGET_SECONDS,
          clock: Callable[[], float] = time.monotonic) -> SyncReport:
@@ -271,6 +272,8 @@ def sync(client: RogAllyLifeClient, cache: ProfileCache,
     seen_keys = set()
     total = len(posts)
     for number, post in enumerate(posts, start=1):
+        if on_item is not None:
+            on_item(number - 1, total)
         key = post.key()
         seen_keys.add(key)
         cached = cache.get(key)
@@ -348,6 +351,9 @@ def sync(client: RogAllyLifeClient, cache: ProfileCache,
         else:
             cache.put(game, etag=post_etag, last_modified=post_modified)
             report.unchanged.append(game.title or key)
+
+    if on_item is not None:
+        on_item(total, total)
 
     # Only a complete pass may claim a post has gone from the source; a run
     # that stopped early has simply not looked at the rest.
