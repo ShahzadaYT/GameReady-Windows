@@ -61,9 +61,10 @@ def test_switching_tab_filters_rows_without_losing_games(app):
 
 
 def test_dashboard_summarises_readiness(app):
-    text = app.dashboard_label.cget("text")
-    for field in ("Games:", "Ready:", "Warnings:", "Action required:"):
-        assert field in text
+    assert "game(s)" in app.dashboard_label.cget("text")
+    labels = [b.cget("text") for b in app.dashboard_bar.winfo_children()]
+    for field in ("Ready:", "Warnings:", "Action required:", "Cannot determine:"):
+        assert any(text.startswith(field) for text in labels), field
     assert app.verdict_label.cget("text")
 
 

@@ -207,6 +207,11 @@ class TravelReadyGUI:
         self.dashboard_label = ttk.Label(header, text="", font=SUB_FONT,
                                          justify="right")
         self.dashboard_label.pack(side="right")
+        #: Each readiness category is a button that filters the list to it, so
+        #: "12 need attention" leads straight to those twelve.
+        self.dashboard_bar = ttk.Frame(header)
+        self.dashboard_bar.pack(side="right", padx=(0, 10))
+        self.dashboard_buttons: Dict[str, ttk.Button] = {}
 
         toolbar = ttk.Frame(self.root, padding=(12, 0, 12, 8))
         toolbar.pack(fill="x")
@@ -696,30 +701,68 @@ class TravelReadyGUI:
             self.notebook.tab(index, text=label)
 
     def _update_dashboard(self) -> None:
-        reports = [self._report_for(i) for i in self._visible_identities()]
+        """Counts for the current tab, by readiness, each one clickable.
+
+        "Cannot determine" is its own category throughout. A game that has not
+        been checked is never counted as not ready, never folded into the
+        number needing attention, and never blocks the all-clear on its own —
+        it is reported as exactly what it is.
+        """
+        # Count against the tab, not the active filter: a dashboard that only
+        # counted what the filter already showed would always read 100%.
+        identities = self._tab_identities()
+        reports = [self._report_for(i) for i in identities]
         counts = preparation.summarise(reports)
-        rows = [
-            f"Games: {counts['total']}",
-            f"Ready: {counts[preparation.READY]}",
-            f"Warnings: {counts[preparation.READY_WITH_WARNINGS]}",
-            f"Action required: {counts[preparation.ACTION_REQUIRED]}",
+        self.dashboard_label.configure(text=f"{counts['total']} game(s)")
+
+        categories = [
+            ("Ready", preparation.READY, appstate.FILTER_READY),
+            ("Warnings", preparation.READY_WITH_WARNINGS, appstate.FILTER_WARNINGS),
+            ("Action required", preparation.ACTION_REQUIRED, appstate.FILTER_ACTION),
+            ("Cannot determine", preparation.READINESS_UNKNOWN, appstate.FILTER_UNKNOWN),
         ]
         if counts[preparation.UNSUPPORTED]:
-            rows.append(f"Unsupported: {counts[preparation.UNSUPPORTED]}")
-        if counts[preparation.READINESS_UNKNOWN]:
-            rows.append(f"Not checked: {counts[preparation.READINESS_UNKNOWN]}")
-        self.dashboard_label.configure(text="    ".join(rows))
+            categories.append(("Unsupported", preparation.UNSUPPORTED, None))
 
-        blocked = counts[preparation.ACTION_REQUIRED] + counts[preparation.NOT_READY]
+        for child in self.dashboard_bar.winfo_children():
+            child.destroy()
+        self.dashboard_buttons.clear()
+        for label, verdict, filter_name in categories:
+            count = counts.get(verdict, 0)
+            button = ttk.Button(
+                self.dashboard_bar, text=f"{label}: {count}", width=19,
+                command=(lambda f=filter_name: self._on_dashboard_click(f)))
+            if filter_name is None or not count:
+                button.state(["disabled"])
+            button.pack(side="left", padx=2)
+            self.dashboard_buttons[verdict] = button
+
+        needs_attention = counts[preparation.ACTION_REQUIRED] + counts[preparation.NOT_READY]
+        unknown = counts[preparation.READINESS_UNKNOWN]
         if not reports:
-            verdict = "No games yet — press Re-scan."
-        elif blocked:
-            verdict = f"{blocked} game(s) need attention before you travel."
-        elif counts[preparation.READINESS_UNKNOWN]:
-            verdict = "Some games have not been checked yet."
+            verdict_text = "No games yet — press Re-scan."
+        elif needs_attention:
+            verdict_text = f"{needs_attention} game(s) need attention before you travel."
+        elif unknown:
+            verdict_text = (f"{unknown} game(s) could not be checked from here. "
+                            f"The rest of this tab is ready to travel.")
         else:
-            verdict = "Everything in this tab is ready to travel."
-        self.verdict_label.configure(text=verdict)
+            verdict_text = "Everything in this tab is ready to travel."
+        self.verdict_label.configure(text=verdict_text)
+
+    def _tab_identities(self):
+        """Games in the current launcher tab, ignoring search and filter."""
+        if self.current_tab == "All":
+            return self.identities
+        return [i for i in self.identities
+                if any(readiness.tab_for_launcher(l) == self.current_tab
+                       for l in i.launchers)]
+
+    def _on_dashboard_click(self, filter_name: Optional[str]) -> None:
+        if not filter_name:
+            return
+        self.filter_var.set(filter_name)
+        self._on_view_changed(filter=filter_name)
 
     # -- events ------------------------------------------------------------
 

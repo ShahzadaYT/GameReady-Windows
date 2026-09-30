@@ -407,3 +407,81 @@ def test_switching_tabs_does_not_reassess_readiness(app, monkeypatch):
         app.notebook.select(readiness.TAB_ORDER.index(tab))
         app.root.update()
     assert calls == [], "tab switching must read cached verdicts"
+
+
+# -- the readiness dashboard ------------------------------------------------
+
+def dashboard(app) -> dict:
+    """Category -> count, as the dashboard displays them."""
+    out = {}
+    for button in app.dashboard_bar.winfo_children():
+        label, _, count = button.cget("text").rpartition(": ")
+        out[label] = int(count)
+    return out
+
+
+def test_unknown_is_its_own_category_not_not_ready(app):
+    """'Cannot determine' must never be presented as 'not ready'."""
+    counts = dashboard(app)
+    assert "Cannot determine" in counts
+    assert "Action required" in counts
+    assert counts["Cannot determine"] >= 0
+
+
+def test_unknown_games_are_not_counted_as_needing_attention(app):
+    from travelready import preparation
+
+    counts = dashboard(app)
+    verdict = app.verdict_label.cget("text")
+    if counts["Cannot determine"] and not counts["Action required"]:
+        assert "could not be checked" in verdict
+        assert "need attention" not in verdict
+
+
+def test_the_dashboard_counts_add_up_to_the_tab(app):
+    counts = dashboard(app)
+    total = int(app.dashboard_label.cget("text").split()[0])
+    assert sum(counts.values()) == total
+
+
+def test_the_dashboard_counts_the_tab_not_the_active_filter(app):
+    """A filter must not make the dashboard read 100% ready."""
+    from travelready import appstate as st
+
+    before = dashboard(app)
+    app._on_view_changed(filter=st.FILTER_READY)
+    app.root.update()
+    assert dashboard(app) == before
+
+
+def test_clicking_a_category_filters_the_list(app):
+    from travelready import appstate as st
+    from travelready import preparation
+
+    counts = dashboard(app)
+    if not counts["Action required"]:
+        pytest.skip("no games need attention in this library")
+    app._on_dashboard_click(st.FILTER_ACTION)
+    app.root.update()
+    assert app.state.filter == st.FILTER_ACTION
+    assert len(app.tree.get_children()) == counts["Action required"]
+    for identity in app.state.visible():
+        assert app.state.report_for(identity).readiness == preparation.ACTION_REQUIRED
+
+
+def test_an_empty_category_is_not_clickable(app):
+    counts = dashboard(app)
+    for button in app.dashboard_bar.winfo_children():
+        label, _, count = button.cget("text").rpartition(": ")
+        if int(count) == 0:
+            assert "disabled" in button.state(), f"{label} has no games to show"
+
+
+def test_the_dashboard_follows_the_tab(app):
+    from travelready import readiness
+
+    all_total = int(app.dashboard_label.cget("text").split()[0])
+    app.notebook.select(readiness.TAB_ORDER.index("Steam"))
+    app.root.update()
+    steam_total = int(app.dashboard_label.cget("text").split()[0])
+    assert 0 < steam_total < all_total
