@@ -253,6 +253,13 @@ class TaskRunner:
         worker.start()
         return task
 
+    def thread_for(self, task: Task) -> Optional[threading.Thread]:
+        """The worker thread running ``task``, while it is running.
+
+        Exposed for callers that need to join it — tests, and shutdown.
+        """
+        return self._threads.get(task.id)
+
     def cancel(self) -> bool:
         """Ask the running task to stop. Returns whether there was one."""
         if self.current is not None and self.current.running:

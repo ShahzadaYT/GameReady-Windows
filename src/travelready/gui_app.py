@@ -28,7 +28,7 @@ from tkinter import filedialog, messagebox, ttk
 from . import (
     __version__, appstate, classification, discovery, doctor as doctor_mod,
     environment, history, identity as identity_mod, launch_tester as lt,
-    launchers, preparation, prepare_run, readiness,
+    launchers, preparation, prepare_run, readiness, tasks,
 )
 from . import apppaths
 from .apppaths import data_file
@@ -95,6 +95,10 @@ class TravelReadyGUI:
         self.root = root
         self.settings = Settings.load()
         self.ui_queue: "queue.Queue[tuple]" = queue.Queue()
+        #: One runner for every background operation: scanning, testing,
+        #: preparing and refreshing the source. It owns the threads and turns
+        #: each outcome into exactly one of succeeded, cancelled or failed.
+        self.runner = tasks.TaskRunner()
         self.cancel_event = threading.Event()
         self.worker: Optional[threading.Thread] = None
         #: tree row id -> the game it shows. Rows are identities (a game),
@@ -816,7 +820,14 @@ class TravelReadyGUI:
 
     @property
     def _busy(self) -> bool:
-        return self.worker is not None and self.worker.is_alive()
+        """Is a background operation running?
+
+        The runner is the authority. Asking the thread would report a worker
+        that has returned but whose outcome has not been delivered yet as
+        finished, and a second task started in that window would race the
+        first one's handler.
+        """
+        return self.runner.busy
 
     # -- library -----------------------------------------------------------
 
@@ -1062,10 +1073,17 @@ class TravelReadyGUI:
     # -- background work ---------------------------------------------------
 
     def _start_worker(self, work: Callable[[], None], label: str) -> None:
+        """Run ``work`` on a worker thread through the shared task runner.
+
+        The runner owns the thread, the cancellation flag and the outcome.
+        Every background operation goes through here, so none of them can
+        quietly swallow an exception or leave the toolbar disabled: a worker
+        that raises is reported, and the controls are restored whatever
+        happened.
+        """
         if self._busy:
             messagebox.showinfo("Busy", "A background task is already running.")
             return
-        self.cancel_event.clear()
         self.scan_button.configure(state="disabled")
         self.test_button.configure(state="disabled")
         self.prepare_button.configure(state="disabled")
@@ -1076,8 +1094,33 @@ class TravelReadyGUI:
         self.progress.configure(mode="indeterminate", value=0)
         self.progress.start(15)
         self._set_status(label)
-        self.worker = threading.Thread(target=work, daemon=True)
-        self.worker.start()
+
+        task = self.runner.start(
+            label.rstrip("… ").rstrip(),
+            lambda ctx: work(),
+            on_failure=self._on_task_failed,
+            on_finished=lambda t: self._worker_finished())
+        if task is None:                       # the runner refused: stay honest
+            self._worker_finished()
+            return
+        # The cancel event the existing workers watch is the task's own, so
+        # Stop reaches whatever is running without a second flag to keep in
+        # step.
+        self.cancel_event = task.stop_event
+        self.worker = self.runner.thread_for(task)
+
+    def _on_task_failed(self, task) -> None:
+        """A background operation raised. Say so; never fail silently."""
+        self._log(f"{task.name} failed after {task.duration:.1f}s: "
+                  f"{task.error_summary}")
+        if task.traceback_text:
+            self._log(task.traceback_text.rstrip())
+        self._set_status(f"{task.name} failed: {task.error_summary}")
+        messagebox.showerror(
+            f"{task.name} failed",
+            f"{task.error_summary}\n\nNothing was changed by the part that "
+            f"failed. The Diagnostics tab has the details, and Copy log puts "
+            f"them on the clipboard.")
 
     def _worker_finished(self) -> None:
         self.scan_button.configure(state="normal")
@@ -1088,6 +1131,9 @@ class TravelReadyGUI:
         self.progress.configure(mode="determinate", value=0)
 
     def _poll_ui_queue(self) -> None:
+        # Deliver task outcomes first, so a failure is reported before any
+        # domain message that a half-finished worker may have queued.
+        self.runner.pump()
         try:
             while True:
                 kind, payload = self.ui_queue.get_nowait()

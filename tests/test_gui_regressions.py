@@ -7,6 +7,7 @@ these bugs was invisible to a test that only checked the startup state.
 from __future__ import annotations
 
 import shutil
+import time
 import threading
 
 import pytest
@@ -765,3 +766,89 @@ def test_the_update_worker_asks_for_per_item_progress(app, monkeypatch):
         app.worker.join(timeout=5)
     assert captured.get("on_item") is not None, "the bar needs item counts"
     assert captured.get("progress") is not None, "stages need reporting"
+
+
+# -- one background framework, not several ----------------------------------
+
+def test_background_work_goes_through_the_shared_runner(app):
+    """Regression: tasks.py existed but the GUI ran its own threads.
+
+    A parallel implementation is how two code paths drift apart; it also meant
+    the module was absent from the built EXE, because nothing imported it.
+    """
+    from travelready import tasks
+
+    assert isinstance(app.runner, tasks.TaskRunner)
+    app._start_worker(lambda: None, "Doing a thing…")
+    if app.worker:
+        app.worker.join(timeout=5)
+    app.runner.pump()
+    assert app.runner.history, "the runner must have recorded the task"
+    assert app.runner.history[-1].name == "Doing a thing"
+
+
+def test_a_worker_that_raises_is_reported_not_swallowed(app, dialogs):
+    """An exception in a worker thread must reach the user."""
+    def boom():
+        raise RuntimeError("the disk went away")
+
+    app._start_worker(boom, "Risky thing…")
+    if app.worker:
+        app.worker.join(timeout=5)
+    app.runner.pump()
+    app.root.update()
+
+    assert dialogs["error"], "the failure must be shown"
+    assert "the disk went away" in dialogs["error"][0][1]
+    assert "the disk went away" in app.diag_text.get("1.0", "end")
+
+
+def test_the_toolbar_is_restored_after_a_worker_fails(app, dialogs):
+    def boom():
+        raise RuntimeError("nope")
+
+    app._start_worker(boom, "Risky thing…")
+    if app.worker:
+        app.worker.join(timeout=5)
+    app.runner.pump()
+    app.root.update()
+    assert str(app.scan_button.cget("state")) == "normal"
+    assert str(app.cancel_button.cget("state")) == "disabled"
+
+
+def test_only_one_background_task_runs_at_a_time(app, dialogs):
+    import threading
+
+    release = threading.Event()
+    app._start_worker(lambda: release.wait(5), "First…")
+    app.root.update()
+    try:
+        assert app._busy
+        app._start_worker(lambda: None, "Second…")
+        assert dialogs["info"], "starting a second task must be refused visibly"
+    finally:
+        release.set()
+        if app.worker:
+            app.worker.join(timeout=5)
+        app.runner.pump()
+
+
+def test_stop_cancels_the_task_the_runner_is_running(app):
+    import threading
+
+    started = threading.Event()
+
+    def work():
+        started.set()
+        for _ in range(500):
+            if app.cancel_event.is_set():
+                return
+            time.sleep(0.002)
+
+    app._start_worker(work, "Long thing…")
+    assert started.wait(5)
+    app._on_cancel()
+    if app.worker:
+        app.worker.join(timeout=5)
+    app.runner.pump()
+    assert app.runner.history[-1].cancelled
