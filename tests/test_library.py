@@ -182,3 +182,70 @@ def test_the_supplied_fixtures_are_pristine():
         assert data["version"] == "2", f"{name} is no longer the shipped v2 file"
         assert data["saved_at"] == saved_at
         assert len(data["games"]) == count
+
+
+# -- duplicate stored entries -----------------------------------------------
+
+def test_merging_never_drops_a_stored_entry_to_deduplication():
+    """Regression: two stored entries for one game silently became one.
+
+    The launcher catalogue supplies the display name, the disk scan supplies
+    the executable. Both were stored, keyed alike, and the later one simply
+    overwrote the earlier — so a scan that found nothing still shrank the
+    library and lost whichever fields the discarded entry held.
+    """
+    pretty = L.GameEntry(name="DOOM: The Dark Ages", launcher="xbox")
+    on_disk = L.GameEntry(name="DOOM- The Dark Ages", launcher="xbox",
+                        exe_path=r"C:\XboxGames\DOOM\DOOMTheDarkAges.exe")
+
+    merged, added, updated = L.merge_library_updates([pretty, on_disk], [])
+
+    assert len(merged) == 1
+    kept = merged[0]
+    assert kept.name == "DOOM: The Dark Ages", "the displayed name is kept"
+    assert kept.exe_path.endswith("DOOMTheDarkAges.exe"), "the executable is kept"
+    assert (added, updated) == (0, 0)
+
+
+def test_folding_a_duplicate_keeps_a_recorded_test_result():
+    """A verified launch is expensive; it must not vanish into a duplicate."""
+    blank = L.GameEntry(name="Game", launcher="steam")
+    tested = L.GameEntry(name="Game", launcher="steam",
+                       last_result="pass", last_ready="2026-09-01T10:00:00")
+
+    merged, _, _ = L.merge_library_updates([blank, tested], [])
+    assert merged[0].last_result == "pass"
+    assert merged[0].last_ready == "2026-09-01T10:00:00"
+
+
+def test_folding_duplicates_unions_their_process_names():
+    a = L.GameEntry(name="Game", launcher="steam",
+                  expected_process="game.exe")
+    b = L.GameEntry(name="Game", launcher="steam",
+                  alt_processes=["game-win64-shipping.exe"])
+
+    merged, _, _ = L.merge_library_updates([a, b], [])
+    names = {n.lower() for n in merged[0].process_names()}
+    assert "game.exe" in names and "game-win64-shipping.exe" in names
+
+
+def test_merging_is_idempotent():
+    """Running a scan twice must not keep changing the library."""
+    entries = [
+        L.GameEntry(name="Some Game"),
+        L.GameEntry(name="Some Game!", exe_path=r"C:\a.exe"),
+        L.GameEntry(name="Other Game", launcher="xbox"),
+    ]
+    once, _, _ = L.merge_library_updates(entries, [])
+    twice, added, updated = L.merge_library_updates(once, [])
+    assert [e.name for e in once] == [e.name for e in twice]
+    assert len(once) == 2
+    assert (added, updated) == (0, 0)
+
+
+def test_an_empty_scan_does_not_delete_games_the_scan_missed():
+    """A launcher being offline must never remove its games."""
+    entries = [L.GameEntry(name="A Steam Game", launcher="steam"),
+               L.GameEntry(name="An EA Game", launcher="ea")]
+    merged, added, updated = L.merge_library_updates(entries, [])
+    assert {e.name for e in merged} == {"A Steam Game", "An EA Game"}

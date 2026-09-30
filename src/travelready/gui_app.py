@@ -25,9 +25,9 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 from . import (
-    __version__, classification, discovery, doctor as doctor_mod, environment,
-    history, identity as identity_mod, launch_tester as lt, launchers,
-    preparation, prepare_run, readiness,
+    __version__, appstate, classification, discovery, doctor as doctor_mod,
+    environment, history, identity as identity_mod, launch_tester as lt,
+    launchers, preparation, prepare_run, readiness,
 )
 from .apppaths import data_file
 from .library import (
@@ -90,8 +90,6 @@ class TravelReadyGUI:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.settings = Settings.load()
-        self.entries: List[GameEntry] = []
-        self.current_tab = "All"
         self.ui_queue: "queue.Queue[tuple]" = queue.Queue()
         self.cancel_event = threading.Event()
         self.worker: Optional[threading.Thread] = None
@@ -99,13 +97,21 @@ class TravelReadyGUI:
         self.profile_store = opt_profiles.ProfileStore.load()
         self.current_plan = None
         self.source_cache = ProfileCache()
-        self.resolver = self._build_resolver()
-        self.environment = environment.current(check_network=False)
-        self.identities: List[identity_mod.GameIdentity] = []
-        #: Readiness is recomputed on demand and cached by identity key. The
-        #: previous build resolved every entry against the source on every
-        #: repaint, which is 149 fuzzy matches on the UI thread per tab switch.
-        self._reports: Dict[str, preparation.PreparationReport] = {}
+
+        #: The single owner of the library and everything derived from it.
+        #: The window holds no second copy: `entries`, `identities` and the
+        #: readiness cache below are views onto this object, so no handler can
+        #: change the library and leave the tree showing the old one. Readiness
+        #: is still computed once per game and cached — repainting used to cost
+        #: 149 fuzzy matches on the UI thread per tab switch.
+        self.state = appstate.AppState(
+            environment=environment.current(check_network=False),
+            resolver=self._build_resolver(),
+            stale_days=self.settings.stale_days)
+        self.state.bus.subscribe(appstate.LIBRARY_CHANGED,
+                                 lambda payload: self._refresh())
+        self.state.bus.subscribe(appstate.READINESS_CHANGED,
+                                 lambda payload: self._update_dashboard())
 
         root.title(f"TravelReady {__version__}")
         root.geometry("1280x800")
@@ -115,6 +121,50 @@ class TravelReadyGUI:
         self._load_library()
         self.root.after(120, self._poll_ui_queue)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    # -- state: one owner, no second copies --------------------------------
+    #
+    # These delegate to `self.state` rather than shadowing it. Assigning to
+    # `self.entries` anywhere in this file therefore invalidates the derived
+    # data and repaints, which is what the scan handler previously failed to
+    # do by hand.
+
+    @property
+    def entries(self) -> List[GameEntry]:
+        return self.state.entries
+
+    @entries.setter
+    def entries(self, value: Sequence[GameEntry]) -> None:
+        self.state.set_entries(value)
+
+    @property
+    def identities(self) -> List[identity_mod.GameIdentity]:
+        return self.state.identities
+
+    @property
+    def current_tab(self) -> str:
+        return self.state.tab
+
+    @current_tab.setter
+    def current_tab(self, value: str) -> None:
+        self.state.set_view(tab=value)
+
+    @property
+    def environment(self):
+        return self.state.environment
+
+    @environment.setter
+    def environment(self, value) -> None:
+        self.state.environment = value
+
+    @property
+    def resolver(self) -> ral_bridge.SourceResolver:
+        return self.state.resolver
+
+    @resolver.setter
+    def resolver(self, value) -> None:
+        self.state.resolver = value
+        self.state.invalidate_readiness()
 
     def _build_resolver(self) -> ral_bridge.SourceResolver:
         return ral_bridge.SourceResolver(
@@ -297,41 +347,81 @@ class TravelReadyGUI:
         self._log(f"Operating mode set to {self.settings.operating_mode}.")
 
     def _on_update_source(self) -> None:
+        """Refresh the recommendation cache in the background.
+
+        The stop event reaches ``sync`` itself, so Cancel stops the run at its
+        next checkpoint instead of merely greying out a button; the deadline
+        means an unresponsive source ends the run rather than the session.
+        """
         def work() -> None:
             try:
                 cache = ProfileCache()
                 report = ral_sync.sync(
                     RogAllyLifeClient(), cache,
                     device_family=ral_bridge.family_for_device(TARGET_DEVICE),
-                    progress=lambda m: self.ui_queue.put(("log", m)))
+                    progress=lambda m: self.ui_queue.put(("log", m)),
+                    stop_event=self.cancel_event)
                 self.ui_queue.put(("source_synced", report))
             except Exception as exc:
-                self.ui_queue.put(("log", f"{SOURCE_NAME} update failed: {exc}"))
-                self.ui_queue.put(("done", "Update failed."))
+                # Report the failure; never let it read as "no recommendations".
+                self.ui_queue.put(("source_failed", exc))
 
         self._start_worker(work, f"Updating {SOURCE_NAME}\u2026")
 
     def _on_source_synced(self, report) -> None:
+        """A sync finished \u2014 possibly partially. The library is untouched.
+
+        This handler once contained lines spliced in from ``__init__`` by a bad
+        search-and-replace, including ``self.identities = []``, so a successful
+        update emptied the game list. Re-reading the cache invalidates only
+        what depends on the source: the resolver and the cached verdicts.
+        """
         self._worker_finished()
         self._log(report.describe())
         self.source_cache = ProfileCache()
         self.resolver = self._build_resolver()
-        self.environment = environment.current(check_network=False)
-        self.identities: List[identity_mod.GameIdentity] = []
-        #: Readiness is recomputed on demand and cached by identity key. The
-        #: previous build resolved every entry against the source on every
-        #: repaint, which is 149 fuzzy matches on the UI thread per tab switch.
-        self._reports: Dict[str, preparation.PreparationReport] = {}
+        self.state.source_synced(report)
         self._update_source_label()
-        self._refresh()
+
         if report.blocked:
             messagebox.showwarning(
                 f"{SOURCE_NAME} unreachable",
                 f"Could not reach {SOURCE_BASE}.\n\nAnything already cached still "
                 f"works offline. Check your connection and try again.")
+            self._set_status(f"{SOURCE_NAME} unreachable \u2014 using cached data.")
+        elif report.cancelled:
+            self._set_status(f"Update cancelled after {report.duration:.0f}s. "
+                             f"{report.changed} profile(s) updated before stopping.")
+        elif report.timed_out:
+            messagebox.showwarning(
+                f"{SOURCE_NAME} update incomplete",
+                f"The update stopped after {report.duration:.0f}s without "
+                f"finishing.\n\nWhat was fetched has been saved, and the rest of "
+                f"the cache is unchanged. Running the update again will carry on "
+                f"from where it stopped.")
+            self._set_status("Update incomplete \u2014 run it again to continue.")
         else:
             messagebox.showinfo(f"{SOURCE_NAME} updated", report.describe())
-        self._set_status("Update finished.")
+            self._set_status(f"Update finished in {report.duration:.0f}s: "
+                             f"{report.changed} changed, "
+                             f"{len(report.unchanged)} unchanged.")
+
+    def _on_source_failed(self, exc: BaseException) -> None:
+        """The update raised. Say what went wrong, and keep the cached data.
+
+        "We could not reach the source" is not "this game has no
+        recommendations", and the two must never look the same.
+        """
+        self._worker_finished()
+        detail = f"{type(exc).__name__}: {exc}".strip()
+        self._log(f"{SOURCE_NAME} update failed. {detail}")
+        self._set_status(f"{SOURCE_NAME} update failed \u2014 cached data still in use.")
+        messagebox.showerror(
+            f"{SOURCE_NAME} update failed",
+            f"The update could not be completed.\n\n{detail}\n\n"
+            f"Your cached recommendations are unchanged and still available "
+            f"offline. This is a problem reaching the source, not a sign that "
+            f"these games have no recommendations.")
 
     # -- helpers -----------------------------------------------------------
 
@@ -361,8 +451,9 @@ class TravelReadyGUI:
     # -- library -----------------------------------------------------------
 
     def _load_library(self) -> None:
-        self.entries, message = load_library(self._library_path())
-        self._rebuild_identities()
+        entries, message = load_library(self._library_path())
+        self.entries = entries
+        self._report_non_games()
         self._log(message)
         self._set_status(message)
         self._refresh()
@@ -373,22 +464,15 @@ class TravelReadyGUI:
             self._log(f"An interrupted preparation run is saved: "
                       f"{saved.completed} of {saved.total} done. Press Resume.")
 
-    def _rebuild_identities(self) -> None:
-        games, non_games = classification.split_games(self.entries)
-        self.identities = identity_mod.build_identities(games)
-        self._reports.clear()
+    def _report_non_games(self) -> None:
+        non_games = self.state.non_games
         if non_games:
             self._log(f"{len(non_games)} entries are not games (launchers, Windows "
                       f"apps, utilities) and are excluded from every count.")
 
     def _report_for(self, identity) -> preparation.PreparationReport:
-        """Readiness for one game, computed once and cached."""
-        cached = self._reports.get(identity.key)
-        if cached is None:
-            cached = preparation.assess(identity, env=self.environment,
-                                        resolver=self.resolver)
-            self._reports[identity.key] = cached
-        return cached
+        """Readiness for one game, computed once and cached by the model."""
+        return self.state.report_for(identity)
 
     def _save_library(self) -> None:
         save_library(self.entries, self._library_path())
@@ -560,6 +644,8 @@ class TravelReadyGUI:
                     self._on_tested(payload)
                 elif kind == "source_synced":
                     self._on_source_synced(payload)
+                elif kind == "source_failed":
+                    self._on_source_failed(payload)
                 elif kind == "prepared":
                     self._on_prepared(payload)
                 elif kind == "doctor":
@@ -588,12 +674,25 @@ class TravelReadyGUI:
         self._start_worker(work, "Scanning for installed games…")
 
     def _on_scanned(self, found: Sequence[GameEntry]) -> None:
-        self.entries, added, updated = merge_library_updates(self.entries, found)
+        """A scan finished: the new games must be on screen immediately.
+
+        Regression: this merged into the entry list but repainted from a
+        separately-built identity list, so scanned games only appeared after
+        restarting. Handing the merged entries to the model rebuilds the
+        derived data and repaints as one step.
+        """
+        merged, added, updated = merge_library_updates(self.entries, found)
+        result = appstate.ScanResult(
+            found=len(found), added=added, updated=updated,
+            total_entries=len(merged))
+        self.state.scan_completed(merged, result)
+        result.games = len(self.state.identities)
+        result.non_games = len(self.state.non_games)
         self._save_library()
-        self._refresh()
         self._worker_finished()
         message = (f"Scan complete: {len(found)} found, {added} new, "
-                   f"{updated} updated, {len(self.entries)} in library.")
+                   f"{updated} updated, {len(merged)} in library "
+                   f"({result.games} games shown).")
         self._log(message)
         self._set_status(message)
 
@@ -711,7 +810,9 @@ class TravelReadyGUI:
     def _on_prepared(self, run) -> None:
         self._worker_finished()
         self._save_library()
-        self._rebuild_identities()
+        # Preparation records results on the entries themselves, so the
+        # verdicts derived from them are now stale.
+        self.state.invalidate_readiness()
         self._refresh()
         self.resume_button.configure(state="normal" if run.resumable else "disabled")
         text = prepare_run.render_run_report(run, self.identities,

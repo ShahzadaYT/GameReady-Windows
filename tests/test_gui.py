@@ -100,14 +100,12 @@ def test_launch_and_verification_are_shown_separately(app):
 
 
 def test_readiness_is_cached_rather_than_recomputed_per_repaint(app):
-    app._reports.clear()
+    app.state.invalidate_readiness()
     app._refresh()
-    first = dict(app._reports)
-    assert first, "a refresh should populate the cache"
-    key = next(iter(first))
-    marker = first[key]
+    identity = app.identities[0]
+    marker = app._report_for(identity)
     app._refresh()
-    assert app._reports[key] is marker, \
+    assert app._report_for(identity) is marker, \
         "an unchanged library must not be re-assessed"
 
 

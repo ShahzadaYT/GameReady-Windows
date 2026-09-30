@@ -348,6 +348,29 @@ _REFRESHABLE = ("exe_path", "working_dir", "install_dir", "expected_process",
                 "package_family_name", "verification", "notes")
 
 
+def _absorb(keep: GameEntry, other: GameEntry) -> None:
+    """Fold a duplicate stored entry into ``keep``, losing nothing.
+
+    ``keep`` wins every field it already has — including its name, which is
+    the one the user has been looking at — and gains everything it was
+    missing. A recorded test result is never discarded: if only the duplicate
+    has one, it is carried across, because a verified launch is expensive to
+    reproduce and losing it silently would make a game look untested.
+    """
+    for fieldname in _REFRESHABLE:
+        if not getattr(keep, fieldname, "") and getattr(other, fieldname, ""):
+            setattr(keep, fieldname, getattr(other, fieldname))
+    known = {n.lower() for n in keep.process_names()}
+    for alt in other.process_names():
+        if alt.lower() not in known:
+            known.add(alt.lower())
+            keep.alt_processes.append(alt)
+    if not keep.last_result and other.last_result:
+        keep.last_result, keep.last_ready = other.last_result, other.last_ready
+    if keep.mode == "manual" and keep.process_names():
+        keep.mode, keep.verification = "standard", VERIFY_AUTO
+
+
 def merge_library_updates(existing: Sequence[GameEntry],
                           discovered: Sequence[GameEntry]) -> Tuple[List[GameEntry], int, int]:
     """Fold a fresh scan into the stored library.
@@ -360,7 +383,17 @@ def merge_library_updates(existing: Sequence[GameEntry],
     """
     by_key: Dict[Tuple[str, str], GameEntry] = {}
     for entry in existing:
-        by_key[(entry.launcher, entry.identity or entry.name.lower())] = entry
+        key = (entry.launcher, entry.identity or entry.name.lower())
+        current = by_key.get(key)
+        if current is None:
+            by_key[key] = entry
+            continue
+        # Two stored entries for the same game — typically one from the
+        # launcher's catalogue, carrying the display name, and one found on
+        # disk, carrying the executable path. Assigning here would keep
+        # whichever came last and silently discard the other's fields, so a
+        # scan that found nothing still shrank the library. Fold them instead.
+        _absorb(current, entry)
 
     added = updated = 0
     for found in discovered:
