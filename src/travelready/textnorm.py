@@ -133,3 +133,31 @@ def atomic_write_bytes(path, payload: bytes) -> None:
     tmp = target.with_name(target.name + ".tmp")
     tmp.write_bytes(payload)
     os.replace(tmp, target)
+
+
+# --------------------------------------------------------------------------
+# sharing diagnostics
+# --------------------------------------------------------------------------
+
+#: Matches a Windows user profile directory, capturing the account name.
+_USER_HOME = re.compile(r"([A-Za-z]:\\Users\\)([^\\/:*?\"<>|\r\n]+)",
+                        re.IGNORECASE)
+_POSIX_HOME = re.compile(r"(/home/)([^/\s:]+)")
+
+
+def redact_paths(text: str) -> str:
+    """Abbreviate home directories so a shared log does not name the account.
+
+    TravelReady holds no credentials, API keys or tokens: it reads a public
+    site anonymously and never authenticates, so there is no secret in its log
+    to remove. What a log does carry is file paths, and on Windows those
+    contain the account name — ``C:\\Users\\SHAHZ\\...`` identifies a person as
+    surely as a name would. Diagnostics are written to be pasted into a bug
+    report, so the account name is replaced before the text leaves the
+    application.
+
+    The path stays readable and still says where the file was:
+    ``C:\\Users\\%USERNAME%\\AppData\\Local\\TravelReady``.
+    """
+    out = _USER_HOME.sub(r"\1%USERNAME%", str(text or ""))
+    return _POSIX_HOME.sub(r"\1$USER", out)

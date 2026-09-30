@@ -14,6 +14,7 @@ further tab.
 from __future__ import annotations
 
 import json
+import os
 import queue
 import threading
 import webbrowser
@@ -29,7 +30,9 @@ from . import (
     environment, history, identity as identity_mod, launch_tester as lt,
     launchers, preparation, prepare_run, readiness,
 )
+from . import apppaths
 from .apppaths import data_file
+from .textnorm import redact_paths
 from .library import (
     LIBRARY_FILE, SCAN_FOLDERS_FILE, GameEntry, export_games, import_games,
     infrastructure_entries, load_library, load_scan_folders, merge_library_updates,
@@ -302,6 +305,7 @@ class TravelReadyGUI:
 
         diag = ttk.Frame(right, padding=8)
         right.add(diag, text="Diagnostics")
+        self._build_diagnostics_bar(diag)
         self.diag_text = tk.Text(diag, wrap="word", font=MONO_FONT, height=12,
                                  relief="flat", background="#1e1e1e", foreground="#e6e6e6")
         self.diag_text.pack(fill="both", expand=True)
@@ -426,6 +430,93 @@ class TravelReadyGUI:
         else:
             text = f"{count} of {visible} selected"
         self.selection_label.configure(text=text)
+
+    def _build_diagnostics_bar(self, parent: ttk.Frame) -> None:
+        """Controls for getting the activity log out of the application."""
+        bar = ttk.Frame(parent)
+        bar.pack(fill="x", pady=(0, 6))
+        ttk.Button(bar, text="Copy log",
+                   command=self._on_copy_log).pack(side="left", padx=2)
+        ttk.Button(bar, text="Open data folder",
+                   command=self._on_open_log_folder).pack(side="left", padx=2)
+        ttk.Button(bar, text="Save log…",
+                   command=self._on_save_log).pack(side="left", padx=2)
+        ttk.Button(bar, text="Clear",
+                   command=self._on_clear_log).pack(side="left", padx=2)
+        ttk.Label(bar, text="Logs never contain credentials or tokens.",
+                  font=SUB_FONT, foreground="#555555").pack(side="right")
+
+    def diagnostics_text(self) -> str:
+        """The activity log, with an environment header, ready to share.
+
+        TravelReady holds no credentials or tokens — it reads a public site
+        anonymously and never authenticates — so there is nothing of that kind
+        to leak here. What the log *does* contain is file paths, which include
+        the Windows user name, so the home directory is abbreviated before
+        this text leaves the application.
+        """
+        header = [
+            f"TravelReady {__version__}",
+            f"Frozen executable: {'yes' if apppaths.is_frozen() else 'no'}",
+            f"Data folder: {redact_paths(str(apppaths.data_dir()))}",
+            f"Library: {redact_paths(str(self._library_path()))}",
+            f"Target device: {TARGET_DEVICE}",
+            f"Operating mode: {self.settings.operating_mode}",
+            f"Games in library: {len(self.entries)} "
+            f"({len(self.identities)} games, {len(self.state.non_games)} other)",
+            f"{SOURCE_NAME} cache: {self.source_cache.stats().get('entries', 0)} games",
+            "",
+        ]
+        body = self.diag_text.get("1.0", "end").rstrip()
+        return "\n".join(header) + "\n" + redact_paths(body) + "\n"
+
+    def _on_copy_log(self) -> None:
+        text = self.diagnostics_text()
+        self.root.clipboard_clear()
+        self.root.clipboard_append(text)
+        self._set_status(f"Diagnostics copied to the clipboard "
+                         f"({len(text.splitlines())} lines).")
+
+    def _on_open_log_folder(self) -> None:
+        """Show the data folder in Explorer.
+
+        Uses the same shell-open route as launching a game: no command line is
+        built, so nothing in the path can be interpreted as a second command.
+        """
+        folder = apppaths.data_dir()
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+            opener = getattr(os, "startfile", None)
+            if opener is not None:
+                opener(str(folder))
+            else:
+                webbrowser.open(folder.as_uri())
+            self._set_status(f"Opened {redact_paths(str(folder))}.")
+        except OSError as exc:
+            messagebox.showerror(
+                "Could not open the folder",
+                f"{folder}\n\n{type(exc).__name__}: {exc}")
+
+    def _on_save_log(self) -> None:
+        path = filedialog.asksaveasfilename(
+            title="Save diagnostics", defaultextension=".txt",
+            initialfile="travelready-diagnostics.txt",
+            filetypes=[("Text files", "*.txt"), ("All files", "*.*")])
+        if not path:
+            return
+        try:
+            Path(path).write_text(self.diagnostics_text(), encoding="utf-8")
+        except OSError as exc:
+            messagebox.showerror("Could not save the log",
+                                 f"{path}\n\n{type(exc).__name__}: {exc}")
+            return
+        self._set_status(f"Diagnostics saved to {Path(path).name}.")
+
+    def _on_clear_log(self) -> None:
+        self.diag_text.configure(state="normal")
+        self.diag_text.delete("1.0", "end")
+        self.diag_text.configure(state="disabled")
+        self._set_status("Activity log cleared.")
 
     def _build_source_search_panel(self, parent: ttk.Frame) -> None:
         """Search the recommendation source, whether or not a game is installed.

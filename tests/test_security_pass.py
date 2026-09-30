@@ -239,3 +239,41 @@ def test_the_doctor_never_repairs_anything_external():
     for finding in report.repairable:
         assert finding.section in ("Application", "Settings", "ROG Ally Life",
                                    "Prepare-for-Travel")
+
+
+# -- sharing diagnostics safely ---------------------------------------------
+
+def test_redaction_removes_the_windows_account_name():
+    from travelready.textnorm import redact_paths
+
+    out = redact_paths(r"C:\Users\SHAHZ\AppData\Local\TravelReady\games.json")
+    assert "SHAHZ" not in out
+    assert out == r"C:\Users\%USERNAME%\AppData\Local\TravelReady\games.json"
+
+
+def test_redaction_handles_several_paths_in_one_line():
+    from travelready.textnorm import redact_paths
+
+    out = redact_paths(r"copy C:\Users\Alice\a.txt D:\Users\Bob\b.txt")
+    assert "Alice" not in out and "Bob" not in out
+
+
+def test_redaction_is_case_insensitive_about_the_users_folder():
+    from travelready.textnorm import redact_paths
+
+    assert "SHAHZ" not in redact_paths(r"c:\users\SHAHZ\thing")
+
+
+def test_redaction_leaves_ordinary_text_alone():
+    from travelready.textnorm import redact_paths
+
+    text = "Scan complete: 162 found, 0 new."
+    assert redact_paths(text) == text
+
+
+def test_redaction_keeps_program_files_paths_readable():
+    """Only the account name is private; the rest of the path is diagnostic."""
+    from travelready.textnorm import redact_paths
+
+    path = r"C:\Program Files\EA Games\Battlefield 3\bf3.exe"
+    assert redact_paths(path) == path

@@ -633,3 +633,68 @@ def test_a_miss_against_a_populated_cache_explains_the_difference(app_with_sourc
     text = app.source_detail.get("1.0", "end")
     assert "cached here" in text
     assert "run an update" in text.lower()
+
+
+# -- diagnostics ------------------------------------------------------------
+
+def test_diagnostics_can_be_copied_with_an_environment_header(app):
+    app._log("something happened")
+    text = app.diagnostics_text()
+    assert "TravelReady" in text
+    assert "Frozen executable:" in text
+    assert "Games in library:" in text
+    assert "something happened" in text
+
+
+def test_copying_diagnostics_puts_them_on_the_clipboard(app):
+    app._log("a log line")
+    app._on_copy_log()
+    app.root.update()
+    assert "a log line" in app.root.clipboard_get()
+
+
+def test_diagnostics_do_not_name_the_windows_account(app):
+    r"""Paths identify a person: C:\Users\SHAHZ\... must not be shared."""
+    app._log(r"Read C:\Users\SHAHZ\AppData\Local\TravelReady\games.json")
+    text = app.diagnostics_text()
+    assert "SHAHZ" not in text
+    assert "%USERNAME%" in text
+    assert "AppData" in text, "the path must stay useful"
+
+
+def test_diagnostics_expose_no_credentials_or_tokens(app):
+    """TravelReady holds none; the log must not invent a place to put them."""
+    text = app.diagnostics_text().lower()
+    for word in ("password", "token", "api key", "secret", "bearer",
+                 "authorization"):
+        assert word not in text
+
+
+def test_saving_diagnostics_writes_the_redacted_text(app, tmp_path, monkeypatch):
+    import travelready.gui_app as gui_app
+
+    target = tmp_path / "diag.txt"
+    app._log(r"path C:\Users\SHAHZ\thing.json")
+    monkeypatch.setattr(gui_app.filedialog, "asksaveasfilename",
+                        lambda **kw: str(target))
+    app._on_save_log()
+    written = target.read_text(encoding="utf-8")
+    assert "SHAHZ" not in written
+    assert "%USERNAME%" in written
+
+
+def test_clearing_the_log_empties_it(app):
+    app._log("noise")
+    app._on_clear_log()
+    assert app.diag_text.get("1.0", "end").strip() == ""
+
+
+def test_opening_the_data_folder_uses_the_shell_not_a_command_line(app, monkeypatch):
+    """The same rule as launching a game: never build a command string."""
+    import travelready.gui_app as gui_app
+
+    opened = []
+    monkeypatch.setattr(gui_app.os, "startfile", lambda p: opened.append(p),
+                        raising=False)
+    app._on_open_log_folder()
+    assert opened, "the folder must be opened"
