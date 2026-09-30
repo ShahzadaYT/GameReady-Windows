@@ -93,7 +93,9 @@ class TravelReadyGUI:
         self.ui_queue: "queue.Queue[tuple]" = queue.Queue()
         self.cancel_event = threading.Event()
         self.worker: Optional[threading.Thread] = None
-        self.iid_to_entry: Dict[str, GameEntry] = {}
+        #: tree row id -> the game it shows. Rows are identities (a game),
+#: not entries (one installation of it).
+        self.iid_to_identity: Dict[str, identity_mod.GameIdentity] = {}
         self.profile_store = opt_profiles.ProfileStore.load()
         self.current_plan = None
         self.source_cache = ProfileCache()
@@ -244,6 +246,8 @@ class TravelReadyGUI:
             self.notebook.add(frame, text=tab)
         self.notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
 
+        self._build_selection_bar()
+
         body = ttk.PanedWindow(self.root, orient="horizontal")
         body.pack(fill="both", expand=True, padx=12, pady=8)
 
@@ -261,11 +265,17 @@ class TravelReadyGUI:
                                    ("last", "Last checked", 116)):
             self.tree.heading(name, text=title)
             self.tree.column(name, width=width, anchor="w")
-        scroll = ttk.Scrollbar(left, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scroll.set)
+        self.tree_scroll = ttk.Scrollbar(left, orient="vertical",
+                                         command=self.tree.yview)
+        self.tree.configure(yscrollcommand=self.tree_scroll.set)
         self.tree.pack(side="left", fill="both", expand=True)
-        scroll.pack(side="right", fill="y")
+        self.tree_scroll.pack(side="right", fill="y")
         self.tree.bind("<<TreeviewSelect>>", self._on_select)
+        #: Shown in place of the table when there is nothing to list, so an
+        #: empty view always explains itself.
+        self.empty_label = ttk.Label(left, text="", font=SUB_FONT,
+                                     justify="center", anchor="center",
+                                     foreground="#555555")
 
         right = ttk.Notebook(body)
         body.add(right, weight=2)
@@ -292,6 +302,120 @@ class TravelReadyGUI:
         self.status_label.pack(side="left")
         self.progress = ttk.Progressbar(status, mode="determinate", length=260)
         self.progress.pack(side="right")
+
+    def _build_selection_bar(self) -> None:
+        """Search, filter, sort and bulk selection.
+
+        A library of 150 games is not usable if preparing a subset means
+        clicking each one, so every control here works on the *visible* games:
+        selecting all while the Steam tab and a search are active selects those
+        games and no others.
+        """
+        bar = ttk.Frame(self.root, padding=(12, 0))
+        bar.pack(fill="x")
+
+        ttk.Label(bar, text="Search:").pack(side="left", padx=(0, 4))
+        self.search_var = tk.StringVar()
+        search_box = ttk.Entry(bar, textvariable=self.search_var, width=26)
+        search_box.pack(side="left", padx=(0, 10))
+        # Filtering is cheap (it reads cached verdicts), but rebuilding the
+        # tree on every keystroke is not: coalesce bursts of typing.
+        self.search_var.trace_add("write", lambda *_: self._on_search_typed())
+        self._search_after: Optional[str] = None
+
+        ttk.Label(bar, text="Show:").pack(side="left", padx=(0, 4))
+        self.filter_var = tk.StringVar(value=appstate.FILTER_ALL)
+        filter_box = ttk.Combobox(bar, textvariable=self.filter_var, width=17,
+                                  state="readonly", values=list(appstate.FILTERS))
+        filter_box.pack(side="left", padx=(0, 10))
+        filter_box.bind("<<ComboboxSelected>>",
+                        lambda _e: self._on_view_changed(filter=self.filter_var.get()))
+
+        ttk.Label(bar, text="Sort:").pack(side="left", padx=(0, 4))
+        self.sort_var = tk.StringVar(value=appstate.SORT_NAME)
+        sort_box = ttk.Combobox(bar, textvariable=self.sort_var, width=13,
+                                state="readonly", values=list(appstate.SORTS))
+        sort_box.pack(side="left", padx=(0, 10))
+        sort_box.bind("<<ComboboxSelected>>",
+                      lambda _e: self._on_view_changed(sort=self.sort_var.get()))
+
+        ttk.Button(bar, text="Select all",
+                   command=self._on_select_all).pack(side="left", padx=2)
+        ttk.Button(bar, text="Select none",
+                   command=self._on_select_none).pack(side="left", padx=2)
+        ttk.Button(bar, text="Invert",
+                   command=self._on_invert_selection).pack(side="left", padx=2)
+        ttk.Button(bar, text="Select not ready",
+                   command=self._on_select_not_ready).pack(side="left", padx=2)
+
+        self.selection_label = ttk.Label(bar, text="No games selected.",
+                                         font=SUB_FONT)
+        self.selection_label.pack(side="right")
+
+        # Ctrl+A anywhere in the window selects everything currently visible.
+        self.root.bind_all("<Control-a>", self._on_ctrl_a)
+        self.root.bind_all("<Control-A>", self._on_ctrl_a)
+
+    # -- view controls -----------------------------------------------------
+
+    def _on_search_typed(self) -> None:
+        if self._search_after is not None:
+            self.root.after_cancel(self._search_after)
+        self._search_after = self.root.after(
+            180, lambda: self._on_view_changed(search=self.search_var.get()))
+
+    def _on_view_changed(self, **change) -> None:
+        self._search_after = None
+        self.state.set_view(**change)
+        self._refresh()
+
+    def _on_ctrl_a(self, event=None):
+        """Select every visible game — unless the user is typing in a box."""
+        widget = self.root.focus_get()
+        if isinstance(widget, (ttk.Entry, tk.Entry, tk.Text)):
+            return None
+        self._on_select_all()
+        return "break"
+
+    def _on_select_all(self) -> None:
+        self.state.select_all_visible()
+        self._apply_selection_to_tree()
+
+    def _on_select_none(self) -> None:
+        self.state.select_none()
+        self._apply_selection_to_tree()
+
+    def _on_invert_selection(self) -> None:
+        self.state.invert_selection()
+        self._apply_selection_to_tree()
+
+    def _on_select_not_ready(self) -> None:
+        """Select what still needs work — never what merely could not be checked.
+
+        UNKNOWN is not NOT-READY: a game whose readiness could not be
+        determined is not silently swept into a batch of fixes.
+        """
+        self.state.select_where(
+            lambda i: self.state.report_for(i).readiness in (
+                preparation.ACTION_REQUIRED, preparation.READY_WITH_WARNINGS))
+        self._apply_selection_to_tree()
+
+    def _apply_selection_to_tree(self) -> None:
+        """Mirror the model's selection into the tree widget."""
+        wanted = self.state.selection
+        iids = [iid for iid, ident in self.iid_to_identity.items()
+                if ident.key in wanted]
+        self.tree.selection_set(iids)
+        self._update_selection_label()
+
+    def _update_selection_label(self) -> None:
+        count = self.state.selection_count
+        visible = len(self.state.visible())
+        if count == 0:
+            text = f"No games selected  ({visible} shown)"
+        else:
+            text = f"{count} of {visible} selected"
+        self.selection_label.configure(text=text)
 
     def _build_optimiser_panel(self, parent: ttk.Frame) -> None:
         mode_bar = ttk.Frame(parent)
@@ -478,19 +602,57 @@ class TravelReadyGUI:
         save_library(self.entries, self._library_path())
 
     def _visible_identities(self):
-        if self.current_tab == "All":
-            return list(self.identities)
-        return [i for i in self.identities
-                if any(readiness.tab_for_launcher(l) == self.current_tab
-                       for l in i.launchers)]
+        """The games the current tab, search and filter admit."""
+        return self.state.visible()
+
+    def _restore_selection(self) -> None:
+        """Re-apply the model's selection after the tree is rebuilt."""
+        wanted = self.state.selection
+        iids = [iid for iid, ident in self.iid_to_identity.items()
+                if ident.key in wanted]
+        if iids:
+            self.tree.selection_set(iids)
+        self._update_selection_label()
+
+    def _update_empty_state(self) -> None:
+        """Say why the list is empty, and what to do about it.
+
+        An empty table with no explanation is indistinguishable from a broken
+        one, and the three reasons need three different actions.
+        """
+        if self.tree.get_children():
+            if self.empty_label.winfo_ismapped():
+                self.empty_label.pack_forget()
+                self.tree.pack(side="left", fill="both", expand=True)
+                self.tree_scroll.pack(side="right", fill="y")
+            return
+        # Replace the table rather than leaving an empty one below the text:
+        # an empty grid reads as a failure even when the message explains it.
+        self.tree.pack_forget()
+        self.tree_scroll.pack_forget()
+        if not self.identities:
+            text = ("No games in the library yet.\n\n"
+                    "Press Re-scan to look for installed games.")
+        elif self.state.search.strip():
+            text = (f"No game matches “{self.state.search.strip()}” "
+                    f"in this tab.\n\nClear the search, or choose the All tab.")
+        elif self.state.filter != appstate.FILTER_ALL:
+            text = (f"No game in this tab is “{self.state.filter}”.\n\n"
+                    f"Choose a different filter to see the rest.")
+        else:
+            text = ("No games for this launcher.\n\n"
+                    "The All tab shows everything in the library.")
+        self.empty_label.configure(text=text)
+        if not self.empty_label.winfo_ismapped():
+            self.empty_label.pack(fill="both", expand=True, pady=24)
 
     def _visible_entries(self) -> List[GameEntry]:
         return [i.best_installation().entry for i in self._visible_identities()
                 if i.best_installation()]
 
     def _selected_identities(self):
-        return [self.iid_to_entry[iid] for iid in self.tree.selection()
-                if iid in self.iid_to_entry]
+        return [self.iid_to_identity[iid] for iid in self.tree.selection()
+                if iid in self.iid_to_identity]
 
     def _selected_entries(self) -> List[GameEntry]:
         return [i.best_installation().entry for i in self._selected_identities()
@@ -498,11 +660,10 @@ class TravelReadyGUI:
 
     def _refresh(self) -> None:
         self.tree.delete(*self.tree.get_children())
-        self.iid_to_entry.clear()
+        self.iid_to_identity.clear()
         settings_labels = {"PASS": "profile", "WARN": "none",
                            "UNKNOWN": "not checked", "NOT_APPLICABLE": "-"}
-        for identity in sorted(self._visible_identities(),
-                               key=lambda i: i.canonical_title.lower()):
+        for identity in self.state.visible():
             installation = identity.best_installation()
             if installation is None:
                 continue
@@ -516,9 +677,13 @@ class TravelReadyGUI:
                         settings_labels.get(report.settings_state, "-"),
                         readiness.age_text(installation.entry)),
                 tags=(report.readiness,))
-            self.iid_to_entry[iid] = identity
+            self.iid_to_identity[iid] = identity
         for verdict, colour in preparation.READINESS_COLORS.items():
             self.tree.tag_configure(verdict, foreground=colour)
+        # A repaint must not silently drop the user's selection: re-apply it
+        # to the rows that are still on screen.
+        self._restore_selection()
+        self._update_empty_state()
         self._update_tab_labels()
         self._update_dashboard()
 
@@ -564,7 +729,12 @@ class TravelReadyGUI:
         self._refresh()
 
     def _on_select(self, _event=None) -> None:
+        # The tree is the user's input; the model is the record. Clicking rows
+        # updates the model so bulk actions and the count agree with what is
+        # highlighted.
         selected = self._selected_identities()
+        self.state.set_selection([i.key for i in selected])
+        self._update_selection_label()
         if not selected:
             return
         identity = selected[0]
