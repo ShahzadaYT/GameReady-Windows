@@ -31,7 +31,9 @@ def test_capability_is_truthy_only_when_available():
     assert Capability("x", True)
 
 
-def test_detect_off_windows_is_honest_rather_than_failing():
+def test_detect_off_windows_is_honest_rather_than_failing(monkeypatch):
+    # Simulate the non-Windows host so this runs on the Windows CI job too.
+    monkeypatch.setattr(env_mod, "IS_WINDOWS", False)
     env = env_mod.detect(check_network=False)
     assert not env.windows
     assert env.notes and "off Windows" in env.notes[0]

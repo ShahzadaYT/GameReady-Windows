@@ -270,7 +270,7 @@ def cmd_launchers(args) -> int:
         print("Installed on this machine:")
         for key in ("steam", "xbox", "ea", "epic", "ubisoft", "gog", "battlenet"):
             adapter = launchers.ADAPTERS[key]
-            present = adapter.launcher_installed()
+            present = adapter.launcher_installed(refresh=True)
             mark = {True: "yes", False: "no", None: "unknown"}[present]
             print(f"  {adapter.display_name:<24}{mark}")
     else:

@@ -175,7 +175,7 @@ def _check_launchers(report: DoctorReport, env: Environment) -> None:
         return
     for key in ("steam", "xbox", "ea", "epic", "ubisoft", "gog", "battlenet"):
         adapter = ADAPTERS[key]
-        present = adapter.launcher_installed()
+        present = adapter.launcher_installed(refresh=True)
         if present is None:
             report.add(section, adapter.display_name, INFO,
                        "no supported detection for this launcher")
