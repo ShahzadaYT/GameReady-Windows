@@ -164,6 +164,75 @@ def test_launcher_presence_off_windows_is_unknown_without_detecting(xbox_detecti
     assert calls == []
 
 
+# -- a failed Xbox probe is "cannot determine", not "not installed" ----------
+
+@pytest.fixture
+def xbox_probe(monkeypatch):
+    """The real Xbox detection on a simulated Windows host; set probe[0]."""
+    from dataclasses import replace
+
+    from travelready import discovery, environment, launchers
+    from travelready.environment import Capability
+
+    windows = replace(offline_environment(), windows=Capability("windows", True))
+    monkeypatch.setattr(environment, "current", lambda **kw: windows)
+    monkeypatch.setattr(launchers, "_clock", lambda: 1000.0)
+    adapter = launchers.ADAPTERS["xbox"]
+    monkeypatch.setattr(adapter, "_presence", None)
+    probe, calls = [None], []
+    monkeypatch.setattr(discovery, "start_apps_probe",
+                        lambda: calls.append(1) or probe[0])
+    return adapter, probe, calls, windows
+
+
+@pytest.mark.parametrize("answer, installed", [
+    (None, None),                                    # PowerShell did not answer
+    ([], False),                                     # it answered: no apps
+    ([("Xbox", "Microsoft.GamingApp_8wekyb3d8bbwe!Microsoft.Xbox.App")], True),
+])
+def test_xbox_presence_follows_the_probe(xbox_probe, answer, installed):
+    adapter, probe, _, _ = xbox_probe
+    probe[0] = answer
+    assert adapter.launcher_installed() is installed
+
+
+def _xbox_games(count):
+    return build_identities([
+        _entry(name=f"Xbox Game {i}", launcher="xbox", expected_process=f"game{i}.exe",
+               exe_path="", install_dir="", launch_method="shell",
+               launch_target=f"shell:AppsFolder\\Pub.G{i}!App")
+        for i in range(count)])
+
+
+def test_a_failed_xbox_probe_is_unknown_not_a_failed_check(xbox_probe):
+    """Regression: a PowerShell timeout said "the launcher does not appear to be
+    installed", a failed check demanding action for every Xbox game."""
+    _, probe, calls, windows = xbox_probe
+    probe[0] = None
+    for identity in _xbox_games(3):
+        report = prep.assess(identity, env=windows)
+        assert report.check("launcher").outcome == prep.UNKNOWN
+        assert "launcher" not in [c.id for c in report.failures]
+    assert len(calls) == 1, "a failed probe is cached too, not repeated per game"
+
+
+def test_an_answered_empty_xbox_probe_still_fails_the_check(xbox_probe):
+    _, probe, _, windows = xbox_probe
+    probe[0] = []
+    report = prep.assess(_xbox_games(1)[0], env=windows)
+    assert report.check("launcher").outcome == prep.FAIL
+    assert "launcher" in [c.id for c in report.failures]
+
+
+def test_a_failed_xbox_probe_is_asked_again_on_refresh(xbox_probe):
+    adapter, probe, calls, _ = xbox_probe
+    probe[0] = None
+    assert adapter.launcher_installed() is None
+    probe[0] = [("Xbox", "Microsoft.GamingApp_8wekyb3d8bbwe!Microsoft.Xbox.App")]
+    assert adapter.launcher_installed(refresh=True) is True
+    assert len(calls) == 2
+
+
 # -- identity ----------------------------------------------------------------
 
 def test_one_game_on_two_launchers_is_one_identity():
