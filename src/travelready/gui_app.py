@@ -20,7 +20,7 @@ import threading
 import webbrowser
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Sequence
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -73,6 +73,46 @@ HEAD_FONT = ("Segoe UI", 20, "bold")
 SUB_FONT = ("Segoe UI", 12)
 MONO_FONT = ("Consolas", 10)
 TOUCH_PAD = 12          # generous padding so buttons are thumb-sized
+
+#: Pixels per inch at 100% Windows display scaling. Pixel sizes are written for
+#: it; the ones that must keep up with the text (row heights, button and tab
+#: padding, column widths, window sizes) go through ``TravelReadyGUI.px``.
+#: Small gaps between widgets are left as they are.
+BASE_DPI = 96.0
+
+
+def ui_scale(pixels_per_inch: float) -> float:
+    """The factor for pixel sizes on a display with this many pixels per inch.
+
+    Fonts are given in points, and Tk scales those itself. Row heights,
+    padding, column widths and window sizes are pixels and do not grow with
+    them: at 150% a 32 px row held 30 px of text, and at 200% it clipped it.
+    1.0 at 100% scaling, 1.5 at 150% (the ROG Ally's default), never below 1.
+    """
+    return max(1.0, round(pixels_per_inch / BASE_DPI, 2))
+
+
+def enable_dpi_awareness() -> bool:
+    """Ask Windows for real pixels. Must run before ``tk.Tk()``.
+
+    Tk reads the display's DPI when it starts. Asked afterwards, Windows still
+    stopped stretching the window, but Tk had already assumed 96 DPI, so at
+    150% everything was drawn at two-thirds of its intended size. ``False``
+    where the call does not exist, which leaves Windows to stretch the window
+    instead: blurrier, but the right size.
+    """
+    try:
+        from ctypes import windll
+    except ImportError:
+        return False
+    try:
+        windll.shcore.SetProcessDpiAwareness(1)        # system DPI aware
+    except (AttributeError, OSError):
+        try:
+            windll.user32.SetProcessDPIAware()         # before Windows 8.1
+        except (AttributeError, OSError):
+            return False
+    return True
 
 
 @dataclass
@@ -137,9 +177,13 @@ class TravelReadyGUI:
         self.state.bus.subscribe(appstate.READINESS_CHANGED,
                                  lambda payload: self._update_dashboard())
 
+        #: Multiplies every pixel size; see :func:`ui_scale`.
+        self.scale = ui_scale(root.winfo_fpixels("1i"))
+
         root.title(f"TravelReady {__version__}")
-        root.geometry("1280x800")
-        root.minsize(900, 600)
+        root.geometry(self._fit("1280x800"))
+        max_width, max_height = self._screen_limits()
+        root.minsize(min(self.px(900), max_width), min(self.px(600), max_height))
         self._build_style()
         self._build_widgets()
         self._load_library()
@@ -196,6 +240,26 @@ class TravelReadyGUI:
             mode=self.settings.operating_mode,
             max_watts=(self.settings.max_watts or None))
 
+    # -- display scaling ---------------------------------------------------
+
+    def px(self, pixels: int) -> int:
+        """A size written for 100% scaling, in pixels on this display."""
+        return round(pixels * self.scale)
+
+    def _screen_limits(self) -> Tuple[int, int]:
+        """The largest window that still fits on the screen with its frame."""
+        return (int(self.root.winfo_screenwidth() * 0.95),
+                int(self.root.winfo_screenheight() * 0.9))
+
+    def _fit(self, size: str) -> str:
+        """``"WxH"`` written for 100% scaling, scaled and kept on the screen.
+
+        At 150%, 1280x800 becomes 1920x1200, taller than a 1920x1080 display.
+        """
+        width, height = (int(part) for part in size.split("x"))
+        max_width, max_height = self._screen_limits()
+        return f"{min(self.px(width), max_width)}x{min(self.px(height), max_height)}"
+
     # -- chrome ------------------------------------------------------------
 
     def _build_style(self) -> None:
@@ -205,12 +269,14 @@ class TravelReadyGUI:
         except tk.TclError:
             pass
         style.configure(".", font=BASE_FONT)
-        style.configure("TButton", padding=(TOUCH_PAD, TOUCH_PAD - 2), font=BASE_FONT)
-        style.configure("Accent.TButton", padding=(TOUCH_PAD + 4, TOUCH_PAD),
+        style.configure("TButton", padding=(self.px(TOUCH_PAD), self.px(TOUCH_PAD - 2)),
+                        font=BASE_FONT)
+        style.configure("Accent.TButton",
+                        padding=(self.px(TOUCH_PAD + 4), self.px(TOUCH_PAD)),
                         font=("Segoe UI", 12, "bold"))
-        style.configure("Treeview", rowheight=32, font=BASE_FONT)
+        style.configure("Treeview", rowheight=self.px(32), font=BASE_FONT)
         style.configure("Treeview.Heading", font=("Segoe UI", 11, "bold"))
-        style.configure("TNotebook.Tab", padding=(18, 10), font=BASE_FONT)
+        style.configure("TNotebook.Tab", padding=(self.px(18), self.px(10)), font=BASE_FONT)
         for state, colour in readiness.STATE_COLORS.items():
             style.configure(f"{state}.TLabel", foreground=colour, font=SUB_FONT)
         # Readiness verdicts get the same treatment, so the tree can colour a
@@ -284,14 +350,14 @@ class TravelReadyGUI:
         self.tree = ttk.Treeview(left, columns=columns, show="tree headings",
                                  selectmode="extended")
         self.tree.heading("#0", text="Game")
-        self.tree.column("#0", width=380, minwidth=220)
+        self.tree.column("#0", width=self.px(380), minwidth=self.px(220))
         for name, title, width in (("launcher", "Launcher", 96),
                                    ("readiness", "Travel readiness", 150),
                                    ("verify", "Can verify", 96),
                                    ("settings", "Settings", 100),
                                    ("last", "Last checked", 116)):
             self.tree.heading(name, text=title)
-            self.tree.column(name, width=width, anchor="w")
+            self.tree.column(name, width=self.px(width), anchor="w")
         self.tree_scroll = ttk.Scrollbar(left, orient="vertical",
                                          command=self.tree.yview)
         self.tree.configure(yscrollcommand=self.tree_scroll.set)
@@ -564,12 +630,12 @@ class TravelReadyGUI:
                                            show="tree headings", height=8,
                                            selectmode="browse")
         self.source_results.heading("#0", text="Game")
-        self.source_results.column("#0", width=240, minwidth=160)
+        self.source_results.column("#0", width=self.px(240), minwidth=self.px(160))
         for name, title, width in (("installed", "In your library", 110),
                                    ("profiles", "Profiles", 70),
                                    ("updated", "Source updated", 110)):
             self.source_results.heading(name, text=title)
-            self.source_results.column(name, width=width, anchor="w")
+            self.source_results.column(name, width=self.px(width), anchor="w")
         self.source_results.pack(fill="both", expand=True)
         self.source_results.bind("<<TreeviewSelect>>", self._on_source_result_selected)
         #: row id -> the catalogue entry it shows. Kept apart from the library
@@ -1475,7 +1541,7 @@ class TravelReadyGUI:
                           *, width: str = "900x680") -> None:
         window = tk.Toplevel(self.root)
         window.title(title)
-        window.geometry(width)
+        window.geometry(self._fit(width))
         text = tk.Text(window, wrap="word", font=MONO_FONT, padx=16, pady=16)
         text.pack(fill="both", expand=True)
         text.insert("1.0", content)
@@ -1505,7 +1571,7 @@ class TravelReadyGUI:
         self._set_status("Diagnostics finished.")
         window = tk.Toplevel(self.root)
         window.title("Diagnostics")
-        window.geometry("900x720")
+        window.geometry(self._fit("900x720"))
         text = tk.Text(window, wrap="word", font=MONO_FONT, padx=16, pady=16)
         text.pack(fill="both", expand=True)
         text.insert("1.0", report.describe())
@@ -1575,13 +1641,13 @@ class TravelReadyGUI:
     def _show_history(self) -> None:
         window = tk.Toplevel(self.root)
         window.title("Test history")
-        window.geometry("900x560")
+        window.geometry(self._fit("900x560"))
         columns = ("when", "status", "outcome")
         tree = ttk.Treeview(window, columns=columns, show="tree headings")
         tree.heading("#0", text="Game")
         for name, title in zip(columns, ("When", "Status", "Outcome")):
             tree.heading(name, text=title)
-        tree.column("#0", width=300)
+        tree.column("#0", width=self.px(300))
         tree.pack(fill="both", expand=True)
         for row in history.recent(data_file("history.json"), 300):
             tree.insert("", "end", text=row.get("name", ""),
@@ -1591,7 +1657,7 @@ class TravelReadyGUI:
     def _open_settings(self) -> None:
         window = tk.Toplevel(self.root)
         window.title("Settings")
-        window.geometry("560x420")
+        window.geometry(self._fit("560x420"))
         frame = ttk.Frame(window, padding=20)
         frame.pack(fill="both", expand=True)
 
@@ -1664,12 +1730,8 @@ class TravelReadyGUI:
 
 
 def launch_gui() -> int:
+    enable_dpi_awareness()                      # before Tk reads the display's DPI
     root = tk.Tk()
-    try:                                        # crisp text on a scaled Windows display
-        from ctypes import windll
-        windll.shcore.SetProcessDpiAwareness(1)
-    except Exception:
-        pass
     TravelReadyGUI(root)
     root.mainloop()
     return 0
