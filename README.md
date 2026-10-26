@@ -35,12 +35,100 @@ DISCOVER → PREPARE → LAUNCH → VERIFY → CLEAN UP → OPTIMISE → VERIFY 
 - Produces a trip report and keeps a history
 - Compares current vs. recommended game settings and applies only the safe ones
 
-## Install
+## Download and run
 
-Download `TravelReady.exe` from the [Releases](../../releases) page. No install,
-no dependencies.
+TravelReady is a single portable program. There is nothing to install and
+nothing else to download.
 
-From source:
+**You need:** Windows 10 or 11, 64-bit. An internet connection is only needed
+to download game-settings recommendations; checking your games does not need
+one.
+
+1. Open the [Releases](../../releases/latest) page and download
+   **`TravelReady.exe`**.
+2. Put it anywhere you like, for example in a `TravelReady` folder in your
+   Documents.
+3. Double-click it.
+
+**"Windows protected your PC".** TravelReady is not code-signed yet, so
+Windows SmartScreen may show this warning the first time. Choose **More info**,
+then **Run anyway**. To check you have the genuine file, compare its SHA-256
+checksum with the one listed in the release notes. In PowerShell:
+
+```
+Get-FileHash .\TravelReady.exe -Algorithm SHA256
+```
+
+### First run
+
+1. Press **Re-scan**. TravelReady looks for games from Steam, Xbox / Game Pass,
+   EA, Epic, Ubisoft, GOG and Battle.net. Scanning only reads; it does not
+   start anything.
+2. Press **Prepare for Travel**. It lists the games it is about to start and
+   asks before starting any. To check just a few, select them and press
+   **Test selected** instead. Each game is opened the way its launcher would
+   open it, checked, and closed again (you can turn off closing in
+   **Settings**).
+3. Games marked **Ready** started successfully. For anything else, select the
+   game and read the **Details** panel: it says what is wrong and what to do.
+
+TravelReady never changes a game's settings unless you press **Apply safe
+settings** and approve the exact change, and it backs the file up first.
+
+### If something goes wrong
+
+- Press **Diagnostics** in the toolbar. It checks TravelReady, Windows, your
+  launchers and your library, and can repair TravelReady's own files.
+- The **Diagnostics** tab in the right-hand panel has **Copy log**, **Save
+  log…** and **Open data folder**. A saved log replaces your Windows account
+  name with `%USERNAME%`, so it is safe to attach to a bug report.
+- Report problems on the [Issues](../../issues) page, with the saved log.
+
+### Where TravelReady keeps its data
+
+Everything TravelReady writes, including your game list, test history, settings
+backups and downloaded recommendations, is in:
+
+```
+%LOCALAPPDATA%\TravelReady
+```
+
+Paste that into the File Explorer address bar to open it, or use **Open data
+folder**.
+
+### Removing TravelReady
+
+1. Close TravelReady.
+2. Delete `TravelReady.exe`.
+3. Delete the `%LOCALAPPDATA%\TravelReady` folder.
+
+Nothing else is left behind: TravelReady makes no registry entries and installs
+no services. If you applied game settings and want the old ones back, use
+**Restore backup** in the **Game settings** panel before deleting the folder,
+because the backups are kept in it.
+
+### Using the command line with TravelReady.exe
+
+`TravelReady.exe` is a windowed program, so typed into a terminal it shows no
+output. To use its commands, send the output to a file and open that:
+
+```
+.\TravelReady.exe doctor > doctor.txt
+```
+
+Most people never need this: **Diagnostics** does the same in the window.
+
+### Known issues in 0.4.0
+
+- **Text can look small on a scaled display**, for example at 150% scaling.
+- **Not yet tested on an ROG Ally.** This release has been tested on a Windows
+  11 desktop and on GitHub's Windows build machines. Touch use, launching real
+  Xbox and EA games, and applying settings on the device are still to be
+  confirmed. See [docs/HARDWARE_VALIDATION.md](docs/HARDWARE_VALIDATION.md).
+
+## Command line (from source)
+
+The command line needs Python 3.11 or later:
 
 ```
 git clone https://github.com/ShahzadaYT/GameReady-Windows
@@ -49,15 +137,16 @@ python run.py              # GUI
 python run.py --help       # CLI
 ```
 
-## Quick start
+```
+python run.py scan                 # find installed games
+python run.py ready                # what is ready to travel, and why not
+python run.py prepare              # prepare everything that is not
+python run.py prepare --resume     # continue an interrupted run
+python run.py doctor               # diagnose anything that is not working
+```
 
-```
-travelready scan                 # find installed games
-travelready ready                # what is ready to travel, and why not
-travelready prepare              # prepare everything that is not
-travelready prepare --resume     # continue an interrupted run
-travelready doctor               # diagnose anything that is not working
-```
+After `pip install -e .`, the same commands are available as `travelready ...`,
+which the examples below use.
 
 `travelready ready "Cyberpunk 2077"` shows every check for one game:
 
@@ -201,7 +290,7 @@ Full detail: **[docs/SAFETY.md](docs/SAFETY.md)**.
 
 ```
 pip install -e ".[dev]"
-python -m pytest              # 682 tests
+python -m pytest              # the full suite (hardware tests deselected)
 pytest -m hardware            # the cases that need a real device
 ```
 
@@ -214,4 +303,4 @@ pyinstaller travelready.spec  # -> dist/TravelReady.exe
 
 ---
 
-**Version** 0.4.0 · **Platform** Windows · **Target** ASUS ROG Ally X
+**Version** 0.4.0 · **Platform** Windows · **Target** ASUS ROG Ally X · **Licence** [MIT](LICENSE)

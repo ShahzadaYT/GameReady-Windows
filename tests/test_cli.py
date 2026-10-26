@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import subprocess
+import sys
 
 import pytest
 
-from conftest import FIXTURES
+from conftest import FIXTURES, ROOT
 from travelready.cli import main
 
 
@@ -126,3 +129,45 @@ def test_version():
     with pytest.raises(SystemExit) as excinfo:
         main(["--version"])
     assert excinfo.value.code == 0
+
+
+# -- output redirected to a file -----------------------------------------------
+#
+# Regression: on Windows, redirected output is encoded with the ANSI code page
+# (cp1252), which has no ✓ or →, so `doctor` and `scan` stopped with
+# UnicodeEncodeError, shown by the packaged build as a blocking error dialog.
+# A real process with stdout redirected to a file, forced to cp1252 so the
+# same failure reproduces on every host.
+
+def _run_redirected(tmp_path, *argv):
+    out = tmp_path / "out.txt"
+    env = dict(os.environ, PYTHONPATH=str(ROOT / "src"), PYTHONIOENCODING="cp1252",
+               TRAVELREADY_DATA_DIR=str(tmp_path / "data"))
+    with open(out, "wb") as stdout:
+        proc = subprocess.run([sys.executable, "-m", "travelready", *argv],
+                              stdout=stdout, stderr=subprocess.PIPE, env=env,
+                              timeout=180)
+    return (proc.returncode, out.read_bytes().decode("utf-8"),
+            proc.stderr.decode("utf-8", "replace"))
+
+
+def test_redirected_doctor_output_is_written_not_raised(tmp_path):
+    code, out, err = _run_redirected(tmp_path, "doctor", "--offline")
+    assert "UnicodeEncodeError" not in err
+    assert code in (0, 1), err            # 1 means doctor found problems
+    assert "✓" in out
+
+
+def test_redirected_scan_output_is_written_not_raised(tmp_path):
+    code, out, err = _run_redirected(tmp_path, "scan", "--sources", "epic")
+    assert "UnicodeEncodeError" not in err
+    assert code == 0, err
+    assert "→" in out
+
+
+def test_redirected_version_is_written(tmp_path):
+    from travelready import __version__
+
+    code, out, err = _run_redirected(tmp_path, "--version")
+    assert code == 0, err
+    assert out.strip() == f"TravelReady {__version__}"
