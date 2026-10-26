@@ -845,7 +845,24 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _write_utf8() -> None:
+    """Write UTF-8 whatever the Windows code page.
+
+    Reports use characters such as ✓, → and —. With output redirected to a
+    file or pipe, Python on Windows encodes with the ANSI code page (cp1252),
+    which has no ✓, and the packaged build ignores ``PYTHONIOENCODING``, so a
+    redirected ``doctor`` or ``scan`` stopped with ``UnicodeEncodeError``. The
+    windowed build has no stream at all when no console is attached; that is
+    left alone.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    _write_utf8()
     args = build_parser().parse_args(argv)
     try:
         return args.func(args)
