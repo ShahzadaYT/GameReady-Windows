@@ -10,6 +10,7 @@ import json
 
 import pytest
 
+from conftest import ROOT
 from travelready import launch_tester as lt
 from travelready.library import GameEntry, import_games
 from travelready.optimiser.model import BLOCKED, SAFE
@@ -80,10 +81,9 @@ def test_epic_uri_with_an_ampersand_still_works():
 def test_no_module_invokes_a_shell():
     """No shell=True, no cmd /c, anywhere in the application."""
     import ast
-    import pathlib
 
-    for path in pathlib.Path("src").rglob("*.py"):
-        tree = ast.parse(path.read_text())
+    for path in (ROOT / "src").rglob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.keyword) and node.arg == "shell":
                 assert not (isinstance(node.value, ast.Constant)
@@ -213,10 +213,8 @@ def test_backup_paths_are_built_from_sanitised_names(tmp_path):
 # -- privilege and process safety --------------------------------------------
 
 def test_nothing_requests_elevation():
-    import pathlib
-
-    for path in pathlib.Path("src").rglob("*.py"):
-        source = path.read_text().lower()
+    for path in (ROOT / "src").rglob("*.py"):
+        source = path.read_text(encoding="utf-8").lower()
         for token in ("shellexecute(none, 'runas'", "runas", "createprocessasuser",
                       "adjusttokenprivileges"):
             assert token not in source, f"{path} attempts privilege escalation"

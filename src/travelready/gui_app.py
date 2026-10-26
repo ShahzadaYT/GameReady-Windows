@@ -403,7 +403,10 @@ class TravelReadyGUI:
 
     def _on_ctrl_a(self, event=None):
         """Select every visible game — unless the user is typing in a box."""
-        widget = self.root.focus_get()
+        # Tk delivers a key press to the focused widget, so the event names it.
+        # Asking the window system instead returns None whenever the window is
+        # not in the foreground, which Windows does not guarantee.
+        widget = getattr(event, "widget", None) or self.root.focus_get()
         if isinstance(widget, (ttk.Entry, tk.Entry, tk.Text)):
             return None
         self._on_select_all()
@@ -1532,7 +1535,7 @@ class TravelReadyGUI:
             lines.append("Installed on this machine:")
             for key in ("steam", "xbox", "ea", "epic", "ubisoft", "gog", "battlenet"):
                 adapter = launchers.ADAPTERS[key]
-                present = adapter.launcher_installed()
+                present = adapter.launcher_installed(refresh=True)
                 lines.append(f"  {adapter.display_name:<26}"
                              f"{ {True: 'yes', False: 'no', None: 'unknown'}[present]}")
         else:

@@ -21,6 +21,7 @@ done with what was found*.
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Sequence
 
@@ -34,6 +35,10 @@ PARTIAL = "PARTIAL"
 NONE = "NONE"
 UNKNOWN = "UNKNOWN"
 LEVELS = (FULL, PARTIAL, NONE, UNKNOWN)
+
+#: How long a launcher-presence answer is reused, in seconds. Readiness asks
+#: once per game, and on Windows the Xbox answer costs a PowerShell process.
+PRESENCE_TTL = 60.0
 
 
 @dataclass(frozen=True)
@@ -127,13 +132,29 @@ class LauncherAdapter:
     def launcher_running(self, table) -> bool:
         return any(table.pids_by_name(name) for name in self.launcher_processes)
 
-    def launcher_installed(self, table=None) -> Optional[bool]:
-        """``True``/``False``, or ``None`` when it cannot be determined here."""
+    #: ``(answer, time.monotonic() when detected)``, or ``None`` before the first.
+    _presence: Optional[tuple] = None
+
+    def launcher_installed(self, table=None, *, refresh: bool = False) -> Optional[bool]:
+        """``True``/``False``, or ``None`` when it cannot be determined here.
+
+        Whether a launcher is installed is a fact about the machine, not about
+        a game, but readiness asks once per game. Detecting it every time ran
+        ``Get-StartApps`` for every Xbox game in the library, so the answer is
+        reused for :data:`PRESENCE_TTL` seconds. Views that exist to report
+        what is installed pass ``refresh=True``.
+        """
         from .environment import current
 
         if not current(check_network=False).windows:
             return None
-        return self._detect_installed()
+        now = time.monotonic()
+        cached = self._presence
+        if not refresh and cached is not None and now - cached[1] < PRESENCE_TTL:
+            return cached[0]
+        present = self._detect_installed()
+        self._presence = (present, now)
+        return present
 
     def _detect_installed(self) -> Optional[bool]:
         return None

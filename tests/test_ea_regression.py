@@ -12,7 +12,7 @@ import json
 import pytest
 
 from conftest import FIXTURES
-from helpers import VirtualClock, launcher_started
+from helpers import VirtualClock, executables_exist, launcher_started
 from travelready import launch_tester as lt
 from travelready.library import GameEntry, load_library
 from travelready.processes import FakeProcessTable, ProcInfo
@@ -110,7 +110,8 @@ def test_ea_app_never_starting_is_distinct_from_game_never_starting():
 
 # -- other named failure states ---------------------------------------------
 
-def test_game_as_child_process_is_detected():
+def test_game_as_child_process_is_detected(monkeypatch):
+    executables_exist(monkeypatch, EA_DIR + r"\bf3.exe")
     table = FakeProcessTable([ProcInfo(900, "cmd.exe", r"C:\Windows\cmd.exe", 1)])
     table.add_at(4, ProcInfo(4300, "bf3.exe", EA_DIR + r"\bf3.exe", 900))
     entry = _entry(launch_method="exe", exe_path=EA_DIR + r"\bf3.exe")
