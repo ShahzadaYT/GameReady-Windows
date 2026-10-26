@@ -94,6 +94,43 @@ def test_a_source_sync_invalidates_readiness_but_keeps_the_library(state):
     assert state.report_for(state.identities[0]) is not report
 
 
+def test_a_scan_rechecks_a_launcher_rather_than_reusing_not_installed(monkeypatch):
+    """Regression: launcher presence is cached, and a scan reused the answer.
+
+    A launcher installed just before a scan stayed "not installed" in every
+    verdict the scan recomputed, and those verdicts are kept until the next
+    invalidation, long after the presence answer itself would have expired.
+    """
+    from dataclasses import replace
+
+    from travelready import environment, launchers
+    from travelready.environment import Capability
+
+    windows = replace(offline_environment(), windows=Capability("windows", True))
+    monkeypatch.setattr(environment, "current", lambda **kw: windows)
+    monkeypatch.setattr(launchers, "_clock", lambda: 1000.0)   # well inside the TTL
+    installed, calls = [False], []
+    xbox = launchers.ADAPTERS["xbox"]
+    monkeypatch.setattr(xbox, "_presence", None)
+    monkeypatch.setattr(xbox, "_detect_installed",
+                        lambda: calls.append(1) or installed[0])
+    games = [entry(f"Xbox Game {i}", "xbox", expected_process=f"game{i}.exe",
+                   launch_method="shell",
+                   launch_target=f"shell:AppsFolder\\Pub.Game{i}!App")
+             for i in range(3)]
+    state = AppState(environment=windows)
+    state.set_entries(games)
+    assert [r.check("launcher").outcome for r in state.reports()] == \
+        [preparation.FAIL] * 3
+
+    installed[0] = True                       # the user installs the Xbox app
+    state.scan_completed(games, ScanResult(found=3))
+
+    assert [r.check("launcher").outcome for r in state.reports()] == \
+        [preparation.PASS] * 3
+    assert len(calls) == 2, "one detection per pass, not one per game"
+
+
 # -- events -----------------------------------------------------------------
 
 def test_scan_publishes_both_library_changed_and_scan_completed(state):

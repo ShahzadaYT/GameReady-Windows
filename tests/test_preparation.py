@@ -1,6 +1,8 @@
 """Preparation state machine, launcher adapters and game identity tests."""
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from conftest import FIXTURES
@@ -105,8 +107,19 @@ def xbox_detections(monkeypatch):
     monkeypatch.setattr(adapter, "_detect_installed",
                         lambda: calls.append(1) or True)
     clock = [1000.0]
-    monkeypatch.setattr(launchers.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(launchers, "_clock", lambda: clock[0])
     return adapter, calls, clock, windows
+
+
+_PROCESS_CLOCK = time.monotonic
+
+
+def test_the_presence_clock_is_not_the_process_clock(xbox_detections):
+    """Freezing time.monotonic would also stall threading and test timeouts."""
+    from travelready import launchers
+
+    assert time.monotonic is _PROCESS_CLOCK
+    assert launchers._clock is not _PROCESS_CLOCK
 
 
 def test_readiness_detects_each_launcher_once_not_once_per_game(xbox_detections):
