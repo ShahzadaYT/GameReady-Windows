@@ -214,8 +214,11 @@ class AppState:
         Cached launcher presence is dropped first: a launcher installed just
         before the scan must not stay "not installed" in the verdicts the scan
         recomputes. Each launcher is detected once more, not once per game.
+        Cached folder listings behind game identification are dropped for the
+        same reason: a game installed since the last scan must be recognised.
         """
         launchers.forget_presence()
+        classification.clear_evidence_cache()
         self.set_entries(entries, event=SCAN_COMPLETED, payload=result)
 
     # -- derived ----------------------------------------------------------

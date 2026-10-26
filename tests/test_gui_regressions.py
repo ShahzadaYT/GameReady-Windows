@@ -910,3 +910,57 @@ def test_a_short_preview_list_has_no_tail():
 
     text = _preview_list(["One", "Two"])
     assert "more" not in text
+
+
+# -- the Not counted tab --------------------------------------------------------
+#
+# A game needs positive evidence to be counted. Everything else is listed here
+# with its reason, and the user can count it, or stop counting a game.
+
+def _uncounted_names(app):
+    return {app.uncounted_tree.item(iid, "text")
+            for iid in app.uncounted_tree.get_children()}
+
+
+def test_windows_tools_are_listed_as_not_counted_not_as_games(app):
+    game_titles = {i.canonical_title for i in app.identities}
+    uncounted = _uncounted_names(app)
+    for name in ("Command Prompt", "Task Manager", "RecoveryDrive", "Windows PowerShell"):
+        assert name in uncounted
+        assert name not in game_titles
+
+
+def test_every_not_counted_entry_shows_why(app):
+    for iid in app.uncounted_tree.get_children():
+        assert app.uncounted_tree.set(iid, "reason"), app.uncounted_tree.item(iid, "text")
+
+
+def test_counting_an_entry_as_a_game_moves_it_and_survives_a_restart(app, dialogs):
+    from travelready.library import load_library
+
+    rows = [iid for iid in app.uncounted_tree.get_children()
+            if app.uncounted_tree.item(iid, "text") == "Play Dispatch"]
+    assert rows, "Play Dispatch has no game files here, so it starts uncounted"
+    app.uncounted_tree.selection_set(rows)
+    app._on_count_as_game()
+    app.root.update()
+    assert "Play Dispatch" in {i.canonical_title for i in app.identities}
+    assert "Play Dispatch" not in _uncounted_names(app)
+    saved, _ = load_library(app._library_path())
+    assert any(e.name == "Play Dispatch" and e.category_override == "game" for e in saved)
+
+
+def test_not_counting_a_selected_game_moves_it_the_other_way(app, dialogs):
+    target = next(iid for iid, ident in app.iid_to_identity.items()
+                  if ident.canonical_title == "Metro 2033")
+    app.tree.selection_set([target])
+    app._on_dont_count_selected()
+    app.root.update()
+    assert "Metro 2033" not in {i.canonical_title for i in app.identities}
+    assert "Metro 2033" in _uncounted_names(app)
+
+
+def test_counting_with_nothing_selected_explains_itself(app, dialogs):
+    app.uncounted_tree.selection_set(())
+    app._on_count_as_game()
+    assert dialogs["info"] and "Not counted list" in dialogs["info"][-1][1]

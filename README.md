@@ -63,7 +63,9 @@ Get-FileHash .\TravelReady.exe -Algorithm SHA256
 
 1. Press **Re-scan**. TravelReady looks for games from Steam, Xbox / Game Pass,
    EA, Epic, Ubisoft, GOG and Battle.net. Scanning only reads; it does not
-   start anything.
+   start anything. Shortcuts and folders count as games only when something
+   shows they are one (game files next to the program, or a games folder), so
+   Office, Windows tools and other software are never tested or started.
 2. Press **Prepare for Travel**. It lists the games it is about to start and
    asks before starting any. To check just a few, select them and press
    **Test selected** instead. Each game is opened the way its launcher would
@@ -77,6 +79,11 @@ settings** and approve the exact change, and it backs the file up first.
 
 ### If something goes wrong
 
+- **A game is missing from the list?** Open the **Not counted** tab in the
+  right-hand panel. It lists everything found that is not counted as a game,
+  and why. Select the game and press **Count as a game**; it stays counted
+  after every re-scan. **Don't count the selected game** does the opposite for
+  anything in the game list that is not a game.
 - Press **Diagnostics** in the toolbar. It checks TravelReady, Windows, your
   launchers and your library, and can repair TravelReady's own files.
 - The **Diagnostics** tab in the right-hand panel has **Copy log**, **Save

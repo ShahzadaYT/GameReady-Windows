@@ -171,3 +171,47 @@ def test_redirected_version_is_written(tmp_path):
     code, out, err = _run_redirected(tmp_path, "--version")
     assert code == 0, err
     assert out.strip() == f"TravelReady {__version__}"
+
+
+# -- mark: the user's game / not-a-game decision -------------------------------
+
+def test_mark_counts_an_unrecognised_entry_as_a_game(capsys, library):
+    from travelready.library import load_library
+
+    code, out, _ = run(capsys, "--library", library, "-q", "mark", "Play Dispatch",
+                       "--as", "game")
+    assert code == 0
+    assert "Play Dispatch: counted as a game" in out
+    entries, _ = load_library(library)
+    marked = [e for e in entries if e.name == "Play Dispatch"]
+    assert marked and all(e.category_override == "game" for e in marked)
+
+
+def test_mark_can_hand_the_decision_back(capsys, library):
+    run(capsys, "--library", library, "-q", "mark", "Play Dispatch", "--as", "game")
+    code, out, _ = run(capsys, "--library", library, "-q", "mark", "Play Dispatch",
+                       "--as", "auto")
+    assert code == 0
+    assert "not counted as a game" in out          # no game files here: unidentified
+
+
+def test_mark_refuses_an_ambiguous_name_and_changes_nothing(capsys, library):
+    before = open(library, "rb").read()
+    code, _, err = run(capsys, "--library", library, "-q", "mark", "Windows",
+                       "--as", "game")
+    assert code == 2
+    assert "Use the full name" in err
+    assert open(library, "rb").read() == before
+
+
+def test_mark_reports_an_unknown_name(capsys, library):
+    code, _, err = run(capsys, "--library", library, "-q", "mark", "No Such Game",
+                       "--as", "game")
+    assert code == 2
+    assert "scan --explain" in err
+
+
+def test_scan_explain_says_how_to_mark_a_missed_game(capsys, library):
+    code, out, _ = run(capsys, "--library", library, "-q", "scan", "--explain")
+    assert code == 0
+    assert 'travelready mark "<name>" --as game' in out

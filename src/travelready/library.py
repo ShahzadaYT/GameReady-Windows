@@ -136,6 +136,9 @@ class GameEntry:
     package_family_name: str = ""
     alt_processes: List[str] = field(default_factory=list)
     verification: str = VERIFY_AUTO
+    #: The user's own decision: ``"game"``, ``"not_game"``, or ``""`` to let
+    #: classification decide. Never refreshed by a scan.
+    category_override: str = ""
 
     def __post_init__(self) -> None:
         self.launcher = normalize_launcher(self.launcher or self.source)
@@ -365,6 +368,8 @@ def _absorb(keep: GameEntry, other: GameEntry) -> None:
         if alt.lower() not in known:
             known.add(alt.lower())
             keep.alt_processes.append(alt)
+    if not keep.category_override and other.category_override:
+        keep.category_override = other.category_override
     if not keep.last_result and other.last_result:
         keep.last_result, keep.last_ready = other.last_result, other.last_ready
     if keep.mode == "manual" and keep.process_names():

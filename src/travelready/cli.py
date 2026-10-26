@@ -380,6 +380,37 @@ def cmd_import(args) -> int:
     return 0
 
 
+_MARKS = {"game": classification.OVERRIDE_GAME,
+          "not-game": classification.OVERRIDE_NOT_GAME, "auto": ""}
+
+
+def cmd_mark(args) -> int:
+    """Count an entry as a game, or not, whatever classification decides."""
+    entries = _load(args)
+    needle = args.game.strip().lower()
+    matches = ([e for e in entries if e.name.strip().lower() == needle]
+               or [e for e in entries if needle in e.name.lower()])
+    names = sorted({e.name for e in matches})
+    if not matches:
+        print(f"Nothing in the library is called '{args.game}'. "
+              f"'travelready scan --explain' lists everything that was found.",
+              file=sys.stderr)
+        return 2
+    if len(names) > 1:
+        print(f"'{args.game}' matches {len(names)} entries. Use the full name:",
+              file=sys.stderr)
+        for name in names[:20]:
+            print(f"  {name}", file=sys.stderr)
+        return 2
+    for entry in matches:
+        entry.category_override = _MARKS[args.mark_as]
+    save_library(entries, _library_path(args))
+    result = classification.classify_entry(matches[0])
+    verdict = "counted as a game" if result.is_game else "not counted as a game"
+    print(f"{names[0]}: {verdict} — {result.reason}")
+    return 0
+
+
 # -- settings ---------------------------------------------------------------
 
 def _entry_for(args) -> Optional[GameEntry]:
@@ -764,6 +795,12 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("import", help="import games")
     p.add_argument("path")
     p.set_defaults(func=cmd_import)
+
+    p = sub.add_parser("mark", help="count an entry as a game, or not")
+    p.add_argument("game", help="the entry's name, as 'scan --explain' or 'list' shows it")
+    p.add_argument("--as", dest="mark_as", required=True, choices=list(_MARKS),
+                   help="'auto' hands the decision back to TravelReady")
+    p.set_defaults(func=cmd_mark)
 
     settings = sub.add_parser("settings", help="game settings optimisation")
     ssub = settings.add_subparsers(dest="settings_command", required=True)

@@ -22,17 +22,26 @@ the rule that fired. A positive game signal — sitting in a launcher's ``games`
 folder, or in ``steamapps\\common``, or in ``C:\\XboxGames`` — outranks the
 launcher-directory rule, because that is exactly where games live.
 
+Something no rule recognised used to count as a game. On an ordinary PC that
+made Word, Task Manager, PowerShell and a shortcut that resets VLC's settings
+"games" to be launched. A game now needs positive evidence: a launcher's own
+library, a games folder, or game files next to its executable. Anything else
+is UNKNOWN and left alone, and the user can mark it as a game
+(``GameEntry.category_override``), which outranks every rule.
+
 Every classification carries its reason, so a user can see why something was
 excluded instead of wondering where their game went.
 """
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import List, Optional, Sequence, Tuple
 
-from .textnorm import fold, leaf, path_components
+from .textnorm import as_path, fold, leaf, path_components
 
 GAME = "GAME"
 APPLICATION = "APPLICATION"
@@ -51,7 +60,56 @@ NON_GAME = (APPLICATION, LAUNCHER, UTILITY, SYSTEM_COMPONENT)
 GAME_DIR_COMPONENTS = frozenset({
     "games", "steamapps", "common", "xboxgames", "gog games", "ea games",
     "origin games", "epic games", "wow_retail_", "call of duty",
+    "rockstar games",
 })
+
+#: Launchers whose own library listed the entry. Being in Steam's, EA's or
+#: Xbox's catalogue of installed games is positive evidence; a Start-menu
+#: shortcut or a folder found on disk ("other") is not.
+CATALOGUE_LAUNCHERS = frozenset({
+    "steam", "epic", "ea", "ubisoft", "gog", "battlenet", "xbox",
+})
+
+#: Files that games ship with and other software almost never does: engine
+#: runtimes, store SDKs and game middleware. Lower-case file names.
+GAME_FILES = {
+    "unityplayer.dll": "Unity engine files",
+    "gameassembly.dll": "Unity engine files",
+    "steam_api.dll": "the Steam game API",
+    "steam_api64.dll": "the Steam game API",
+    "eossdk-win64-shipping.dll": "the Epic Online Services game SDK",
+    "eossdk-win32-shipping.dll": "the Epic Online Services game SDK",
+    "galaxy.dll": "the GOG Galaxy game SDK",
+    "galaxy64.dll": "the GOG Galaxy game SDK",
+    "bink2w64.dll": "Bink game video",
+    "bink2w32.dll": "Bink game video",
+    "binkw64.dll": "Bink game video",
+    "binkw32.dll": "Bink game video",
+    "nvngx_dlss.dll": "NVIDIA DLSS",
+    "fmod.dll": "FMOD game audio",
+    "fmod64.dll": "FMOD game audio",
+    "fmodstudio.dll": "FMOD game audio",
+}
+
+#: Game data archive formats, by suffix. Deliberately not ``.pak``: Chrome and
+#: every Electron app ship ``resources.pak``.
+GAME_ARCHIVES = {
+    ".rpf": "Rockstar", ".rpkg": "Glacier engine", ".forge": "Ubisoft Anvil",
+    ".vpk": "Source engine", ".ba2": "Bethesda", ".bsa": "Bethesda",
+    ".bdt": "FromSoftware", ".ucas": "Unreal Engine", ".utoc": "Unreal Engine",
+}
+
+#: Shared folders that are never searched for game files themselves: every
+#: program sits somewhere under them.
+_SHARED_ROOTS = frozenset({
+    "program files", "program files (x86)", "programdata", "users", "appdata",
+    "local", "roaming", "programs", "windows", "desktop",
+})
+
+#: Values of ``GameEntry.category_override``.
+OVERRIDE_GAME = "game"
+OVERRIDE_NOT_GAME = "not_game"
+OVERRIDES = (OVERRIDE_GAME, OVERRIDE_NOT_GAME)
 
 #: Directory components belonging to a launcher's own program files.
 LAUNCHER_DIR_COMPONENTS = frozenset({
@@ -135,12 +193,24 @@ def _has_component(components: Sequence[str], wanted) -> Optional[str]:
 
 
 def classify(name: str, *, exe_path: str = "", install_dir: str = "",
-             launcher: str = "", app_id: str = "") -> Classification:
-    """Classify one discovered entry. Ordered rules; first match wins."""
+             launcher: str = "", app_id: str = "", evidence: str = "",
+             override: str = "") -> Classification:
+    """Classify one discovered entry. Ordered rules; first match wins.
+
+    ``evidence`` names game files found next to the executable (see
+    :func:`game_files_evidence`); ``override`` is the user's own decision.
+    """
     title = str(name or "").strip()
     path = exe_path or install_dir or ""
     components = path_components(path)
     exe_leaf = leaf(exe_path)
+
+    # 0. The user's decision outranks every rule.
+    if override == OVERRIDE_GAME:
+        return Classification(GAME, "you marked it as a game.", "user-override")
+    if override == OVERRIDE_NOT_GAME:
+        return Classification(APPLICATION, "you marked it as not a game.",
+                              "user-override")
 
     # 1. The name says it outright.
     if LAUNCHER_NAMES.match(title):
@@ -157,6 +227,13 @@ def classify(name: str, *, exe_path: str = "", install_dir: str = "",
     if UTILITY_NAMES.match(title):
         return Classification(UTILITY, f"'{title}' is a desktop utility.",
                               "utility-name")
+
+    # 1b. Nothing in the Windows folder is a game: Command Prompt, PowerShell,
+    #     Task Manager and RecoveryDrive were all being offered for testing.
+    if _in_windows_folder(components):
+        return Classification(SYSTEM_COMPONENT,
+                              "it is part of Windows (it lives in the Windows folder).",
+                              "windows-folder")
 
     # 2. A positive game signal outranks everything about the directory it is
     #    inside — Ubisoft games live under 'Ubisoft Game Launcher\games\'.
@@ -219,8 +296,20 @@ def classify(name: str, *, exe_path: str = "", install_dir: str = "",
     if not title:
         return Classification(UNKNOWN, "no name was recorded.", "no-name")
 
-    return Classification(GAME, "no rule identified it as anything else.",
-                          "default")
+    # 6. Positive evidence only from here. Anything unrecognised used to be
+    #    called a game, so every Start-menu shortcut on an ordinary PC was
+    #    offered for launching: Office, admin consoles, a shortcut that resets
+    #    VLC's settings. A game has to be identified, not merely unexcluded.
+    launcher_key = str(launcher or "").strip().lower()
+    if launcher_key in CATALOGUE_LAUNCHERS:
+        return Classification(GAME, f"listed in the {launcher_key} library of "
+                                    f"installed games.", "launcher-library")
+    if evidence:
+        return Classification(GAME, f"its folder contains {evidence}, which "
+                                    f"games ship with.", "game-files")
+    return Classification(UNKNOWN,
+                          "no sign it is a game: no game files, no games folder.",
+                          "unidentified")
 
 
 def _is_prelauncher(exe_leaf: str) -> bool:
@@ -232,18 +321,81 @@ def _is_prelauncher(exe_leaf: str) -> bool:
         not re.search(r"(unins|setup|install|updater|patch)", exe_leaf, re.IGNORECASE)
 
 
+def _in_windows_folder(components: Sequence[str]) -> bool:
+    """``C:\\Windows\\...`` and the like: a drive, then ``windows``."""
+    return (len(components) >= 2 and components[0].endswith(":")
+            and len(components[0]) == 2 and components[1] == "windows")
+
+
+def game_files_evidence(exe_path: str) -> str:
+    """Game files next to ``exe_path``, described, or ``""`` if there are none.
+
+    Looks in the executable's folder and up to two folders above it (a game
+    is often started from ``bin`` or ``Binaries\\Win64``), never in a shared
+    root such as ``Program Files``. Reads directory listings only.
+    """
+    if not exe_path or "://" in exe_path or exe_path.lower().startswith("shell:"):
+        return ""
+    folder = as_path(exe_path).parent
+    for _ in range(3):
+        parts = path_components(str(folder))
+        if len(parts) < 2 or parts[-1] in _SHARED_ROOTS:
+            break
+        found = _folder_evidence(str(folder))
+        if found:
+            return found
+        folder = folder.parent
+    return ""
+
+
+@lru_cache(maxsize=2048)
+def _folder_evidence(folder: str) -> str:
+    """The first game marker in one folder's listing. Cached: folders of
+    installed programs do not change while TravelReady runs; a scan clears it."""
+    try:
+        with os.scandir(folder) as listing:
+            for count, item in enumerate(listing):
+                if count > 2000:
+                    break
+                name = item.name.lower()
+                if name in GAME_FILES:
+                    return f"{GAME_FILES[name]} ({item.name})"
+                suffix = os.path.splitext(name)[1]
+                if suffix in GAME_ARCHIVES:
+                    return f"{GAME_ARCHIVES[suffix]} game data ({item.name})"
+                if name == "engine" and item.is_dir() and \
+                        os.path.isdir(os.path.join(item.path, "Binaries")):
+                    return "Unreal Engine files (Engine\\Binaries)"
+    except OSError:
+        return ""
+    return ""
+
+
+def clear_evidence_cache() -> None:
+    """Forget cached folder listings, so the next classification looks again."""
+    _folder_evidence.cache_clear()
+
+
 def classify_entry(entry) -> Classification:
     """Classify a :class:`~travelready.library.GameEntry`."""
     app_id = ""
     target = getattr(entry, "launch_target", "") or ""
     if target.lower().startswith("shell:appsfolder\\"):
         app_id = target.split("\\", 1)[1]
+    launcher = getattr(entry, "launcher", "") or ""
+    exe_path = getattr(entry, "exe_path", "") or ""
+    override = getattr(entry, "category_override", "") or ""
+    evidence = ""
+    if not override and launcher.lower() not in CATALOGUE_LAUNCHERS:
+        evidence = game_files_evidence(exe_path)
     return classify(
         getattr(entry, "name", ""),
-        exe_path=getattr(entry, "exe_path", "") or "",
+        exe_path=exe_path,
         install_dir=getattr(entry, "install_dir", "") or "",
-        launcher=getattr(entry, "launcher", "") or "",
+        launcher=launcher,
         app_id=app_id or getattr(entry, "app_user_model_id", "") or "",
+        evidence=evidence,
+        override=override,
     )
 
 
@@ -271,6 +423,10 @@ def classification_report(entries: Sequence) -> str:
             continue
         lines.append(f"  {entry.name[:40]:<42}{result.category}")
         lines.append(f"      {result.reason}")
+    if any(not r.is_game for _, r in rows):
+        lines += ["", "A game TravelReady did not recognise? Mark it, and it is "
+                      "counted from then on:",
+                  '  travelready mark "<name>" --as game']
     flagged = [(e, r) for e, r in rows if r.is_game and r.warning]
     if flagged:
         lines += ["", "Games with a problem recorded:", "-" * 58]
