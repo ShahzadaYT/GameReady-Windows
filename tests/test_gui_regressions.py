@@ -1,0 +1,912 @@
+"""Regressions found by running dist\\TravelReady.exe on a real desktop.
+
+Each test here reproduces a fault a user hit in the built application. They
+drive the real window against the real shipped library, because every one of
+these bugs was invisible to a test that only checked the startup state.
+"""
+from __future__ import annotations
+
+import shutil
+import time
+import threading
+from types import SimpleNamespace
+
+import pytest
+
+from conftest import FIXTURES
+
+tk = pytest.importorskip("tkinter")
+
+
+@pytest.fixture(autouse=True)
+def dialogs(monkeypatch):
+    """Record message boxes instead of showing them.
+
+    Every one of these is modal: without this, a test that triggers one waits
+    forever for a click that never comes.
+    """
+    import travelready.gui_app as gui_app
+
+    shown = {"info": [], "warning": [], "error": []}
+    for kind, name in (("info", "showinfo"), ("warning", "showwarning"),
+                       ("error", "showerror")):
+        monkeypatch.setattr(
+            gui_app.messagebox, name,
+            lambda title, message, _k=kind: shown[_k].append((title, message)))
+    return shown
+
+
+@pytest.fixture
+def app(tmp_path, monkeypatch):
+    monkeypatch.setenv("TRAVELREADY_DATA_DIR", str(tmp_path))
+    shutil.copy(FIXTURES / "games_2026-09-26.json", tmp_path / "games.json")
+    try:
+        root = tk.Tk()
+    except tk.TclError as exc:
+        pytest.skip(f"no display: {exc}")
+    from travelready.gui_app import TravelReadyGUI
+
+    gui = TravelReadyGUI(root)
+    root.update()
+    yield gui
+    root.destroy()
+
+
+def entry(name: str, launcher: str = "Steam"):
+    from travelready.library import GameEntry
+    return GameEntry(name=name, launcher=launcher)
+
+
+# -- "scanning does not refresh the list" -----------------------------------
+
+def titles(app) -> set:
+    """Game titles as shown — the name lives in the tree column, not values."""
+    return {app.tree.item(i, "text") for i in app.tree.get_children()}
+
+
+def test_a_scan_puts_new_games_in_the_tree_without_a_restart(app):
+    """Reported: scanned games appeared only after restarting the EXE."""
+    before = len(app.tree.get_children())
+    assert "Zzz Brand New Game" not in titles(app)
+
+    app._on_scanned(list(app.entries) + [entry("Zzz Brand New Game")])
+    app.root.update()
+
+    assert "Zzz Brand New Game" in titles(app)
+    assert len(app.tree.get_children()) == before + 1
+
+
+def test_a_scan_updates_the_tab_counts_too(app):
+    """Every view derives from the model, so none of them can lag behind."""
+    from travelready import readiness
+
+    steam = readiness.TAB_ORDER.index("Steam")
+
+    def steam_tab() -> str:
+        return app.notebook.tab(steam, "text")
+
+    before = steam_tab()
+    app._on_scanned(list(app.entries) + [entry("Zzz Brand New Game", "steam")])
+    app.root.update()
+    assert steam_tab() != before, "the tab count must move with the library"
+
+
+def test_a_scan_that_finds_nothing_loses_no_game(app):
+    """An empty scan may tidy duplicates, but must never drop a game."""
+    before = titles(app)
+    paths = {e.exe_path for e in app.entries if e.exe_path}
+
+    app._on_scanned([])
+    app.root.update()
+
+    assert titles(app) == before, "no game may disappear because a scan found nothing"
+    # Folding a duplicate pair moves the executable onto the surviving entry;
+    # it must never drop off the library altogether.
+    after = {e.exe_path for e in app.entries if e.exe_path}
+    assert paths <= after, f"lost executable paths: {sorted(paths - after)}"
+
+
+# -- "a successful sync emptied the game list" ------------------------------
+
+def test_a_successful_sync_does_not_empty_the_game_list(app):
+    """Regression: __init__ lines spliced into the sync handler cleared it.
+
+    The handler contained `self.identities = []`, copied in by a careless
+    search-and-replace, so finishing an update wiped every game from the view.
+    """
+    from travelready.optimiser.rogallylife.sync import SyncReport
+
+    before = len(app.tree.get_children())
+    assert before > 0
+
+    app._on_source_synced(SyncReport(discovered=3, fetched=3))
+    app.root.update()
+
+    assert len(app.identities) > 0, "a sync must never empty the library"
+    assert len(app.tree.get_children()) == before
+
+
+def test_the_sync_handler_does_not_reassign_core_state(app):
+    """The handler must touch what depends on the source, and nothing else."""
+    import ast
+    import inspect
+    from travelready.gui_app import TravelReadyGUI
+
+    import textwrap
+    source = textwrap.dedent(inspect.getsource(TravelReadyGUI._on_source_synced))
+    tree = ast.parse(source)
+    assigned = set()
+    for node in ast.walk(tree):
+        targets = []
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+        elif isinstance(node, ast.AnnAssign):
+            targets = [node.target]
+        for target in targets:
+            if (isinstance(target, ast.Attribute)
+                    and isinstance(target.value, ast.Name)
+                    and target.value.id == "self"):
+                assigned.add(target.attr)
+
+    assert "identities" not in assigned, "the sync handler must not clear the games"
+    assert "entries" not in assigned, "a sync must not replace the library"
+
+
+def test_a_cancelled_sync_is_not_reported_as_success(app):
+    from travelready.optimiser.rogallylife.sync import SyncReport
+
+    report = SyncReport(discovered=10, fetched=2, skipped=8,
+                        cancelled=True, duration=3.0)
+    app._on_source_synced(report)
+    app.root.update()
+    status = app.status_label.cget("text")
+    assert "cancelled" in status.lower()
+    assert len(app.identities) > 0
+
+
+def test_an_unreachable_source_never_reads_as_no_recommendations(app, dialogs):
+    """The project's oldest rule: 'cannot determine' must not become 'no'."""
+    from travelready.optimiser.rogallylife.sync import SyncReport
+
+    app._on_source_synced(SyncReport(blocked=True, errors=["403"]))
+    app.root.update()
+
+    assert dialogs["warning"], "an unreachable source must be reported, not hidden"
+    status = app.status_label.cget("text").lower()
+    assert "unreachable" in status or "cached" in status
+    assert "no recommendation" not in status
+
+
+def test_a_failed_sync_shows_an_error_and_keeps_cached_data(app, dialogs):
+    """Regression: the exception was logged and the status said 'Update failed'
+    with no indication that cached recommendations still worked."""
+    app._on_source_failed(OSError("connection reset by peer"))
+    app.root.update()
+
+    assert dialogs["error"], "a failure must be shown to the user"
+    text = dialogs["error"][0][1].lower()
+    assert "connection reset" in text, "the real error must be visible"
+    assert "cached" in text, "the user must be told cached data still works"
+    assert len(app.identities) > 0
+
+
+# -- "Cancel does nothing" --------------------------------------------------
+
+def test_the_update_worker_passes_the_cancel_event_to_sync(app, monkeypatch):
+    """Regression: Cancel set an event that sync() never looked at."""
+    import travelready.gui_app as gui_app
+
+    captured = {}
+
+    def fake_sync(client, cache, **kwargs):
+        captured.update(kwargs)
+        from travelready.optimiser.rogallylife.sync import SyncReport
+        return SyncReport()
+
+    monkeypatch.setattr(gui_app.ral_sync, "sync", fake_sync)
+    app._on_update_source()
+    if app.worker:
+        app.worker.join(timeout=5)
+
+    assert "stop_event" in captured, "sync must receive the GUI's cancel event"
+    assert captured["stop_event"] is app.cancel_event
+
+
+def test_cancel_sets_the_event_the_worker_watches(app):
+    app.cancel_event.clear()
+    app._on_cancel()
+    assert app.cancel_event.is_set()
+
+
+# -- the model behind the views ---------------------------------------------
+
+def test_the_window_keeps_no_second_copy_of_the_library(app):
+    """Views read through the model; a private copy is how state goes stale."""
+    assert app.entries is not app.state._entries
+    assert len(app.entries) == len(app.state.entries)
+    app.state.set_entries([entry("Only One")])
+    app.root.update()
+    assert len(app.entries) == 1
+    assert len(app.tree.get_children()) == 1
+
+
+def test_changing_the_library_repaints_without_an_explicit_refresh_call(app):
+    """Events drive repaints, so a new handler cannot forget to refresh."""
+    app.state.set_entries([entry("Solo Game")])
+    app.root.update()
+    assert titles(app) == {"Solo Game"}
+
+
+# -- bulk selection ---------------------------------------------------------
+
+def test_select_all_selects_every_visible_game(app):
+    """Reported: preparing a subset meant clicking 100+ games one at a time."""
+    app._on_select_all()
+    app.root.update()
+    assert app.state.selection_count == len(app.tree.get_children())
+    assert len(app.tree.selection()) == len(app.tree.get_children())
+
+
+def test_select_all_respects_the_current_tab(app):
+    from travelready import readiness
+
+    app.notebook.select(readiness.TAB_ORDER.index("Steam"))
+    app.root.update()
+    app._on_select_all()
+    shown = len(app.tree.get_children())
+    assert 0 < shown < len(app.identities)
+    assert app.state.selection_count == shown
+
+
+def test_select_all_respects_an_active_search(app):
+    app.search_var.set("doom")
+    app._on_view_changed(search="doom")
+    app.root.update()
+    app._on_select_all()
+    shown = len(app.tree.get_children())
+    assert shown > 0
+    assert app.state.selection_count == shown
+    assert shown < len(app.identities)
+
+
+def test_select_none_clears_the_tree_selection(app):
+    app._on_select_all()
+    app._on_select_none()
+    app.root.update()
+    assert app.state.selection_count == 0
+    assert app.tree.selection() == ()
+
+
+def test_invert_selection_swaps_the_visible_games(app):
+    app._on_select_none()
+    app._on_invert_selection()
+    app.root.update()
+    assert app.state.selection_count == len(app.tree.get_children())
+    app._on_invert_selection()
+    app.root.update()
+    assert app.state.selection_count == 0
+
+
+def test_the_selection_count_is_shown(app):
+    app._on_select_all()
+    app.root.update()
+    text = app.selection_label.cget("text")
+    assert str(app.state.selection_count) in text
+
+
+def test_selecting_not_ready_never_includes_unknown(app):
+    """UNKNOWN is not NOT READY — it must not be swept into a batch fix."""
+    from travelready import preparation
+
+    app._on_select_not_ready()
+    app.root.update()
+    for identity in app.state.selected_identities():
+        verdict = app.state.report_for(identity).readiness
+        assert verdict != preparation.READINESS_UNKNOWN
+        assert verdict != preparation.READY
+
+
+def test_selection_survives_a_repaint(app):
+    app._on_select_all()
+    count = app.state.selection_count
+    app._refresh()
+    app.root.update()
+    assert app.state.selection_count == count
+    assert len(app.tree.selection()) == count
+
+
+def test_clicking_rows_updates_the_model(app):
+    rows = app.tree.get_children()[:3]
+    app.tree.selection_set(rows)
+    app.root.update()
+    assert app.state.selection_count == 3
+
+
+def test_ctrl_a_does_not_hijack_typing_in_the_search_box(app):
+    """Ctrl+A in a text box must still mean 'select the text'."""
+    app._on_select_none()
+    app.search_box_focus = None
+    entry = None
+    for child in app.root.winfo_children():
+        for widget in child.winfo_children():
+            if widget.winfo_class() == "TEntry":
+                entry = widget
+                break
+    assert entry is not None
+    # Pass the key event rather than relying on focus_set(): Windows grants no
+    # keyboard focus to a window that is not in the foreground, as on CI.
+    result = app._on_ctrl_a(SimpleNamespace(widget=entry))
+    assert result is None, "the entry must keep Ctrl+A"
+    assert app.state.selection_count == 0
+
+
+def test_ctrl_a_in_the_game_list_selects_every_visible_game(app):
+    app._on_select_none()
+    result = app._on_ctrl_a(SimpleNamespace(widget=app.tree))
+    assert result == "break"
+    assert app.state.selection_count == len(app.tree.get_children())
+
+
+# -- search, filter, empty states -------------------------------------------
+
+def test_searching_narrows_the_tree(app):
+    before = len(app.tree.get_children())
+    app._on_view_changed(search="doom")
+    app.root.update()
+    after = len(app.tree.get_children())
+    assert 0 < after < before
+
+
+def test_clearing_the_search_restores_every_game(app):
+    before = len(app.tree.get_children())
+    app._on_view_changed(search="doom")
+    app.root.update()
+    app._on_view_changed(search="")
+    app.root.update()
+    assert len(app.tree.get_children()) == before
+
+
+def test_a_search_matching_nothing_explains_itself(app):
+    app._on_view_changed(search="zzzzz no such game zzzzz")
+    app.root.update()
+    assert app.tree.get_children() == ()
+    assert "zzzzz no such game" in app.empty_label.cget("text")
+
+
+def test_an_empty_library_says_what_to_do(app):
+    app.state.set_entries([])
+    app.root.update()
+    assert app.tree.get_children() == ()
+    assert "Re-scan" in app.empty_label.cget("text")
+
+
+def test_the_empty_message_disappears_when_rows_return(app):
+    app._on_view_changed(search="zzzzz")
+    app.root.update()
+    assert app.empty_label.winfo_ismapped()
+    app._on_view_changed(search="")
+    app.root.update()
+    assert not app.empty_label.winfo_ismapped()
+
+
+def test_sorting_reorders_without_changing_the_row_count(app):
+    from travelready import appstate as st
+
+    before = len(app.tree.get_children())
+    first_by_name = app.tree.item(app.tree.get_children()[0], "text")
+    app._on_view_changed(sort=st.SORT_LAUNCHER)
+    app.root.update()
+    assert len(app.tree.get_children()) == before
+    app._on_view_changed(sort=st.SORT_NAME)
+    app.root.update()
+    assert app.tree.item(app.tree.get_children()[0], "text") == first_by_name
+
+
+def test_switching_tabs_does_not_reassess_readiness(app, monkeypatch):
+    """Regression: a tab switch cost 149 fuzzy matches on the UI thread."""
+    from travelready import preparation
+    from travelready import readiness
+
+    app._refresh()
+    calls = []
+    original = preparation.assess
+    monkeypatch.setattr(preparation, "assess",
+                        lambda *a, **k: (calls.append(1), original(*a, **k))[1])
+    for tab in ("Steam", "Xbox", "All", "Steam"):
+        app.notebook.select(readiness.TAB_ORDER.index(tab))
+        app.root.update()
+    assert calls == [], "tab switching must read cached verdicts"
+
+
+# -- the readiness dashboard ------------------------------------------------
+
+def dashboard(app) -> dict:
+    """Category -> count, as the dashboard displays them."""
+    out = {}
+    for button in app.dashboard_bar.winfo_children():
+        label, _, count = button.cget("text").rpartition(": ")
+        out[label] = int(count)
+    return out
+
+
+def test_unknown_is_its_own_category_not_not_ready(app):
+    """'Cannot determine' must never be presented as 'not ready'."""
+    counts = dashboard(app)
+    assert "Cannot determine" in counts
+    assert "Action required" in counts
+    assert counts["Cannot determine"] >= 0
+
+
+def test_unknown_games_are_not_counted_as_needing_attention(app):
+    from travelready import preparation
+
+    counts = dashboard(app)
+    verdict = app.verdict_label.cget("text")
+    if counts["Cannot determine"] and not counts["Action required"]:
+        assert "could not be checked" in verdict
+        assert "need attention" not in verdict
+
+
+def test_the_dashboard_counts_add_up_to_the_tab(app):
+    counts = dashboard(app)
+    total = int(app.dashboard_label.cget("text").split()[0])
+    assert sum(counts.values()) == total
+
+
+def test_the_dashboard_counts_the_tab_not_the_active_filter(app):
+    """A filter must not make the dashboard read 100% ready."""
+    from travelready import appstate as st
+
+    before = dashboard(app)
+    app._on_view_changed(filter=st.FILTER_READY)
+    app.root.update()
+    assert dashboard(app) == before
+
+
+def test_clicking_a_category_filters_the_list(app):
+    from travelready import appstate as st
+    from travelready import preparation
+
+    counts = dashboard(app)
+    if not counts["Action required"]:
+        pytest.skip("no games need attention in this library")
+    app._on_dashboard_click(st.FILTER_ACTION)
+    app.root.update()
+    assert app.state.filter == st.FILTER_ACTION
+    assert len(app.tree.get_children()) == counts["Action required"]
+    for identity in app.state.visible():
+        assert app.state.report_for(identity).readiness == preparation.ACTION_REQUIRED
+
+
+def test_an_empty_category_is_not_clickable(app):
+    counts = dashboard(app)
+    for button in app.dashboard_bar.winfo_children():
+        label, _, count = button.cget("text").rpartition(": ")
+        if int(count) == 0:
+            assert "disabled" in button.state(), f"{label} has no games to show"
+
+
+def test_the_dashboard_follows_the_tab(app):
+    from travelready import readiness
+
+    all_total = int(app.dashboard_label.cget("text").split()[0])
+    app.notebook.select(readiness.TAB_ORDER.index("Steam"))
+    app.root.update()
+    steam_total = int(app.dashboard_label.cget("text").split()[0])
+    assert 0 < steam_total < all_total
+
+
+# -- searching the recommendation source ------------------------------------
+
+@pytest.fixture
+def app_with_source(app, tmp_path):
+    """The app with a small cached catalogue, including an uninstalled game."""
+    from travelready.optimiser.rogallylife.model import (
+        SourceGame, SourceProfile, SourceSetting,
+    )
+
+    def game(title, slug, settings=True):
+        profiles = ()
+        if settings:
+            profiles = [SourceProfile(
+                name="Balanced",
+                settings=[SourceSetting(label="Resolution", value="1280x720"),
+                          SourceSetting(label="Texture Quality", value="Medium")])]
+        return SourceGame(
+            title=title,
+            source_url=f"https://rogallylife.com/2026/01/01/{slug}/",
+            device_family="rog_ally_family", last_updated="2026-01-01",
+            profiles=profiles)
+
+    for entry_game in (game("Elden Ring", "elden-ring"),
+                       game("Cyberpunk 2077", "cyberpunk-2077"),
+                       game("No Tables Here", "no-tables", settings=False)):
+        app.source_cache.put(entry_game)
+    app.source_cache.save_index()
+    app.resolver = app._build_resolver()
+    return app
+
+
+def test_searching_finds_a_game_that_is_not_installed(app_with_source):
+    """Reported: no way to look up a game the scan did not find."""
+    app = app_with_source
+    app.source_search_var.set("elden ring")
+    app._on_source_search()
+    app.root.update()
+
+    rows = app.source_results.get_children()
+    assert rows, "a cached game must be findable"
+    titles = [app.source_results.item(r, "text") for r in rows]
+    assert "Elden Ring" in titles
+
+
+def test_search_results_say_whether_a_game_is_in_the_library(app_with_source):
+    app = app_with_source
+    app.source_search_var.set("elden ring")
+    app._on_source_search()
+    app.root.update()
+    row = app.source_results.get_children()[0]
+    assert app.source_results.item(row, "values")[0] in ("yes", "no")
+
+
+def test_searching_never_adds_anything_to_the_library(app_with_source):
+    """The library records what is installed; a search result is not that."""
+    app = app_with_source
+    before_entries = [e.name for e in app.entries]
+    before_games = len(app.identities)
+
+    app.source_search_var.set("elden ring")
+    app._on_source_search()
+    app.root.update()
+    rows = app.source_results.get_children()
+    app.source_results.selection_set(rows[0])
+    app.root.update()
+
+    assert [e.name for e in app.entries] == before_entries
+    assert len(app.identities) == before_games
+
+
+def test_searching_does_not_write_the_library_file(app_with_source, tmp_path):
+    """games.json must be untouched by a look-up."""
+    library = tmp_path / "games.json"
+    before = library.read_bytes()
+
+    app = app_with_source
+    app.source_search_var.set("cyberpunk")
+    app._on_source_search()
+    app.root.update()
+    rows = app.source_results.get_children()
+    app.source_results.selection_set(rows[0])
+    app.root.update()
+
+    assert library.read_bytes() == before, "games.json must not be rewritten"
+
+
+def test_selecting_a_result_shows_its_published_settings(app_with_source):
+    app = app_with_source
+    app.source_search_var.set("elden ring")
+    app._on_source_search()
+    app.root.update()
+    app.source_results.selection_set(app.source_results.get_children()[0])
+    app.root.update()
+
+    text = app.source_detail.get("1.0", "end")
+    assert "Resolution" in text and "1280x720" in text
+    assert "rogallylife.com" in text, "the source must be attributed"
+
+
+def test_an_uninstalled_result_says_it_will_not_be_changed(app_with_source):
+    app = app_with_source
+    app.source_search_var.set("elden ring")
+    app._on_source_search()
+    app.root.update()
+    app.source_results.selection_set(app.source_results.get_children()[0])
+    app.root.update()
+    text = app.source_detail.get("1.0", "end")
+    assert "not in your library" in text
+
+
+def test_a_page_without_a_settings_table_says_so_rather_than_nothing(app_with_source):
+    app = app_with_source
+    app.source_search_var.set("no tables here")
+    app._on_source_search()
+    app.root.update()
+    rows = app.source_results.get_children()
+    assert rows
+    app.source_results.selection_set(rows[0])
+    app.root.update()
+    text = app.source_detail.get("1.0", "end")
+    assert "no usable settings" in text
+    assert "fact about the page" in text
+
+
+def test_an_empty_cache_is_not_reported_as_no_recommendations(app):
+    """'Nothing downloaded yet' must not read as 'this game has none'."""
+    app.source_search_var.set("elden ring")
+    app._on_source_search()
+    app.root.update()
+    text = app.source_detail.get("1.0", "end")
+    assert app.source_results.get_children() == ()
+    lower = text.lower()
+    assert "nothing has been checked yet" in lower
+    # The phrase may appear only where it is being denied, never as a verdict.
+    assert "not a statement that these games have no recommendations" in lower
+    assert "press \u201cupdate" in lower
+
+
+def test_a_miss_against_a_populated_cache_explains_the_difference(app_with_source):
+    app = app_with_source
+    app.source_search_var.set("zzzz nonexistent zzzz")
+    app._on_source_search()
+    app.root.update()
+    text = app.source_detail.get("1.0", "end")
+    assert "cached here" in text
+    assert "run an update" in text.lower()
+
+
+# -- diagnostics ------------------------------------------------------------
+
+def test_diagnostics_can_be_copied_with_an_environment_header(app):
+    app._log("something happened")
+    text = app.diagnostics_text()
+    assert "TravelReady" in text
+    assert "Frozen executable:" in text
+    assert "Games in library:" in text
+    assert "something happened" in text
+
+
+def test_copying_diagnostics_puts_them_on_the_clipboard(app):
+    app._log("a log line")
+    app._on_copy_log()
+    app.root.update()
+    assert "a log line" in app.root.clipboard_get()
+
+
+# An account no test host will have. The diagnostics header also carries the
+# real data folder, and pytest names its temp folder after the real account
+# (pytest-of-<account>), so asserting on a real name fails on that machine.
+ACCOUNT = "ExampleAccount7"
+
+
+def test_diagnostics_do_not_name_the_windows_account(app):
+    r"""Paths identify a person: C:\Users\<account>\... must not be shared."""
+    app._log(rf"Read C:\Users\{ACCOUNT}\AppData\Local\TravelReady\games.json")
+    text = app.diagnostics_text()
+    assert ACCOUNT not in text
+    assert "%USERNAME%" in text
+    assert "AppData" in text, "the path must stay useful"
+
+
+def test_diagnostics_expose_no_credentials_or_tokens(app):
+    """TravelReady holds none; the log must not invent a place to put them."""
+    text = app.diagnostics_text().lower()
+    for word in ("password", "token", "api key", "secret", "bearer",
+                 "authorization"):
+        assert word not in text
+
+
+def test_saving_diagnostics_writes_the_redacted_text(app, tmp_path, monkeypatch):
+    import travelready.gui_app as gui_app
+
+    target = tmp_path / "diag.txt"
+    app._log(rf"path C:\Users\{ACCOUNT}\thing.json")
+    monkeypatch.setattr(gui_app.filedialog, "asksaveasfilename",
+                        lambda **kw: str(target))
+    app._on_save_log()
+    written = target.read_text(encoding="utf-8")
+    assert ACCOUNT not in written
+    assert "%USERNAME%" in written
+
+
+def test_clearing_the_log_empties_it(app):
+    app._log("noise")
+    app._on_clear_log()
+    assert app.diag_text.get("1.0", "end").strip() == ""
+
+
+def test_opening_the_data_folder_uses_the_shell_not_a_command_line(app, monkeypatch):
+    """The same rule as launching a game: never build a command string."""
+    import travelready.gui_app as gui_app
+
+    opened = []
+    monkeypatch.setattr(gui_app.os, "startfile", lambda p: opened.append(p),
+                        raising=False)
+    app._on_open_log_folder()
+    assert opened, "the folder must be opened"
+
+
+# -- long operations report three states ------------------------------------
+
+def test_a_running_task_sweeps_before_a_total_is_known(app, monkeypatch):
+    """'Working, duration unknown' must not look like 'not started'."""
+    import threading
+
+    release = threading.Event()
+    app._start_worker(lambda: release.wait(5), "Working…")
+    app.root.update()
+    try:
+        assert str(app.progress.cget("mode")) == "indeterminate"
+        assert str(app.cancel_button.cget("state")) == "normal"
+    finally:
+        release.set()
+        if app.worker:
+            app.worker.join(timeout=5)
+
+
+def test_a_known_total_switches_the_bar_to_a_real_measure(app):
+    app._start_worker(lambda: None, "Working…")
+    app.ui_queue.put(("progress", (3, 10)))
+    app._poll_ui_queue()
+    app.root.update()
+    assert str(app.progress.cget("mode")) == "determinate"
+    assert app.progress.cget("value") == 3
+    assert app.progress.cget("maximum") == 10
+    app._worker_finished()
+
+
+def test_finishing_resets_the_bar_and_re_enables_the_buttons(app):
+    app._start_worker(lambda: None, "Working…")
+    if app.worker:
+        app.worker.join(timeout=5)
+    app._worker_finished()
+    app.root.update()
+    assert app.progress.cget("value") == 0
+    assert str(app.scan_button.cget("state")) == "normal"
+    assert str(app.cancel_button.cget("state")) == "disabled"
+
+
+def test_sync_stages_reach_the_status_line_not_only_the_log(app):
+    """Reported: the window said 'Updating…' and nothing else, forever."""
+    app.ui_queue.put(("stage", "Trying the sitemap…"))
+    app._poll_ui_queue()
+    app.root.update()
+    assert "sitemap" in app.status_label.cget("text")
+    assert "sitemap" in app.diag_text.get("1.0", "end")
+
+
+def test_the_update_worker_asks_for_per_item_progress(app, monkeypatch):
+    import travelready.gui_app as gui_app
+
+    captured = {}
+
+    def fake_sync(client, cache, **kwargs):
+        captured.update(kwargs)
+        from travelready.optimiser.rogallylife.sync import SyncReport
+        return SyncReport()
+
+    monkeypatch.setattr(gui_app.ral_sync, "sync", fake_sync)
+    app._on_update_source()
+    if app.worker:
+        app.worker.join(timeout=5)
+    assert captured.get("on_item") is not None, "the bar needs item counts"
+    assert captured.get("progress") is not None, "stages need reporting"
+
+
+# -- one background framework, not several ----------------------------------
+
+def test_background_work_goes_through_the_shared_runner(app):
+    """Regression: tasks.py existed but the GUI ran its own threads.
+
+    A parallel implementation is how two code paths drift apart; it also meant
+    the module was absent from the built EXE, because nothing imported it.
+    """
+    from travelready import tasks
+
+    assert isinstance(app.runner, tasks.TaskRunner)
+    app._start_worker(lambda: None, "Doing a thing…")
+    if app.worker:
+        app.worker.join(timeout=5)
+    app.runner.pump()
+    assert app.runner.history, "the runner must have recorded the task"
+    assert app.runner.history[-1].name == "Doing a thing"
+
+
+def test_a_worker_that_raises_is_reported_not_swallowed(app, dialogs):
+    """An exception in a worker thread must reach the user."""
+    def boom():
+        raise RuntimeError("the disk went away")
+
+    app._start_worker(boom, "Risky thing…")
+    if app.worker:
+        app.worker.join(timeout=5)
+    app.runner.pump()
+    app.root.update()
+
+    assert dialogs["error"], "the failure must be shown"
+    assert "the disk went away" in dialogs["error"][0][1]
+    assert "the disk went away" in app.diag_text.get("1.0", "end")
+
+
+def test_the_toolbar_is_restored_after_a_worker_fails(app, dialogs):
+    def boom():
+        raise RuntimeError("nope")
+
+    app._start_worker(boom, "Risky thing…")
+    if app.worker:
+        app.worker.join(timeout=5)
+    app.runner.pump()
+    app.root.update()
+    assert str(app.scan_button.cget("state")) == "normal"
+    assert str(app.cancel_button.cget("state")) == "disabled"
+
+
+def test_only_one_background_task_runs_at_a_time(app, dialogs):
+    import threading
+
+    release = threading.Event()
+    app._start_worker(lambda: release.wait(5), "First…")
+    app.root.update()
+    try:
+        assert app._busy
+        app._start_worker(lambda: None, "Second…")
+        assert dialogs["info"], "starting a second task must be refused visibly"
+    finally:
+        release.set()
+        if app.worker:
+            app.worker.join(timeout=5)
+        app.runner.pump()
+
+
+def test_stop_cancels_the_task_the_runner_is_running(app):
+    import threading
+
+    started = threading.Event()
+
+    def work():
+        started.set()
+        for _ in range(500):
+            if app.cancel_event.is_set():
+                return
+            time.sleep(0.002)
+
+    app._start_worker(work, "Long thing…")
+    assert started.wait(5)
+    app._on_cancel()
+    if app.worker:
+        app.worker.join(timeout=5)
+    app.runner.pump()
+    assert app.runner.history[-1].cancelled
+
+
+# -- prepare-for-travel preview ---------------------------------------------
+
+def test_prepare_lists_the_games_it_will_touch(app, dialogs, monkeypatch):
+    """A run that starts and closes real games must be recognisable first."""
+    import travelready.gui_app as gui_app
+
+    asked = []
+    monkeypatch.setattr(gui_app.messagebox, "askyesno",
+                        lambda title, message: (asked.append(message), False)[1])
+    app._on_select_all()
+    app._on_prepare_travel()
+
+    assert asked, "the user must be asked before games are started"
+    text = asked[0]
+    assert "•" in text, "the games must be listed, not just counted"
+    assert "more" in text, "a long list must account for the remainder"
+
+
+def test_declining_the_prepare_preview_starts_nothing(app, monkeypatch):
+    import travelready.gui_app as gui_app
+
+    monkeypatch.setattr(gui_app.messagebox, "askyesno", lambda *a, **k: False)
+    app._on_select_all()
+    app._on_prepare_travel()
+    app.root.update()
+    assert not app._busy
+    assert "cancelled" in app.status_label.cget("text").lower()
+
+
+def test_the_preview_list_reports_the_tail_honestly():
+    from travelready.gui_app import _preview_list
+
+    text = _preview_list([f"Game {n}" for n in range(20)], limit=5)
+    assert text.count("•") == 5
+    assert "and 15 more" in text
+
+
+def test_a_short_preview_list_has_no_tail():
+    from travelready.gui_app import _preview_list
+
+    text = _preview_list(["One", "Two"])
+    assert "more" not in text

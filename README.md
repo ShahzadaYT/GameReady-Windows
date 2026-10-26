@@ -1,42 +1,306 @@
-# GameReady-Windows
+# TravelReady
 
-## Prepare your Windows gaming handheld for travel
+**Prepare your ROG Ally X for playing offline.**
 
-GameReady helps you check whether your games are ready to play before you leave an internet connection.
+Some PC games will not start without an internet connection unless their
+launcher has authenticated recently. You find out on the plane. TravelReady
+answers two questions before you leave:
 
-It is designed for Windows gaming handhelds such as the **ROG Ally / Ally X, Lenovo Legion Go, MSI Claw**, and similar devices.
+1. **Will my games actually work when I'm offline?**
+2. **Can I safely configure them using the best available ROG Ally recommendations?**
 
-### What GameReady does
+It discovers your installed games, launches each one the way its launcher
+would, confirms the game process really started and survived, closes it again,
+and records the result. Then it can compare your current graphics settings
+against a ROG Ally Life profile and apply the changes it is certain are safe —
+after showing you the exact diff and taking a verified backup.
 
-- 🎮 Automatically discovers installed games and supported launchers
-- 🔎 Organizes games by launcher
-- ▶️ Tests whether games actually launch
-- 🧹 Tracks launched game processes and cleans them up safely
-- 🧳 **Prepare for Travel** checks selected games before you go offline
-- ✅ Shows which games are ready and which need attention
-- 🔐 Helps identify games that may require a launcher sign-in before travelling
-- 🔄 Re-scan your system to discover newly installed games
+Designed for the **ASUS ROG Ally X**; also useful on other Windows handhelds.
 
-### Why?
+---
 
-Some PC games can have problems when you're travelling without an internet connection if the required launcher authentication or game readiness hasn't been established beforehand.
+## What it does
 
-GameReady is designed to let you check this **before you leave home**.
+```
+DISCOVER → PREPARE → LAUNCH → VERIFY → CLEAN UP → OPTIMISE → VERIFY → READY FOR TRAVEL
+```
 
-### Download
+- Discovers games from **Steam, Epic, EA, Ubisoft, Xbox / Game Pass, GOG,
+  Battle.net**, Start-menu shortcuts and folders you choose
+- Organises them into launcher tabs with live counts
+- Launches and **verifies** each game actually started — `CreateProcess`
+  succeeding is never reported as a pass
+- Closes what it started, gracefully first, and reports anything it could not
+- Tracks readiness: READY / STALE / ATTENTION / MANUAL / UNTESTED
+- Produces a trip report and keeps a history
+- Compares current vs. recommended game settings and applies only the safe ones
 
-Go to the **[Releases](../../releases)** page and download the latest `GameReady.exe`.
+## Download and run
 
-### Important
+TravelReady is a single portable program. There is nothing to install and
+nothing else to download.
 
-GameReady does **not** bypass DRM, launcher authentication, or anti-cheat systems.
+**You need:** Windows 10 or 11, 64-bit. An internet connection is only needed
+to download game-settings recommendations; checking your games does not need
+one.
 
-It uses the normal game and launcher launch paths and tests whether your games can be started normally.
+1. Open the [Releases](../../releases/latest) page and download
+   **`TravelReady.exe`**.
+2. Put it anywhere you like, for example in a `TravelReady` folder in your
+   Documents.
+3. Double-click it.
 
-### Status
+**"Windows protected your PC".** TravelReady is not code-signed yet, so
+Windows SmartScreen may show this warning the first time. Choose **More info**,
+then **Run anyway**. To check you have the genuine file, compare its SHA-256
+checksum with the one listed in the release notes. In PowerShell:
 
-**Version:** 0.1.0  
-**Platform:** Windows  
-**Project:** GameReady-Windows
+```
+Get-FileHash .\TravelReady.exe -Algorithm SHA256
+```
 
-This is an early public release. Feedback, bug reports and suggestions are welcome.
+### First run
+
+1. Press **Re-scan**. TravelReady looks for games from Steam, Xbox / Game Pass,
+   EA, Epic, Ubisoft, GOG and Battle.net. Scanning only reads; it does not
+   start anything.
+2. Press **Prepare for Travel**. It lists the games it is about to start and
+   asks before starting any. To check just a few, select them and press
+   **Test selected** instead. Each game is opened the way its launcher would
+   open it, checked, and closed again (you can turn off closing in
+   **Settings**).
+3. Games marked **Ready** started successfully. For anything else, select the
+   game and read the **Details** panel: it says what is wrong and what to do.
+
+TravelReady never changes a game's settings unless you press **Apply safe
+settings** and approve the exact change, and it backs the file up first.
+
+### If something goes wrong
+
+- Press **Diagnostics** in the toolbar. It checks TravelReady, Windows, your
+  launchers and your library, and can repair TravelReady's own files.
+- The **Diagnostics** tab in the right-hand panel has **Copy log**, **Save
+  log…** and **Open data folder**. A saved log replaces your Windows account
+  name with `%USERNAME%`, so it is safe to attach to a bug report.
+- Report problems on the [Issues](../../issues) page, with the saved log.
+
+### Where TravelReady keeps its data
+
+Everything TravelReady writes, including your game list, test history, settings
+backups and downloaded recommendations, is in:
+
+```
+%LOCALAPPDATA%\TravelReady
+```
+
+Paste that into the File Explorer address bar to open it, or use **Open data
+folder**.
+
+### Removing TravelReady
+
+1. Close TravelReady.
+2. Delete `TravelReady.exe`.
+3. Delete the `%LOCALAPPDATA%\TravelReady` folder.
+
+Nothing else is left behind: TravelReady makes no registry entries and installs
+no services. If you applied game settings and want the old ones back, use
+**Restore backup** in the **Game settings** panel before deleting the folder,
+because the backups are kept in it.
+
+### Using the command line with TravelReady.exe
+
+`TravelReady.exe` is a windowed program, so typed into a terminal it shows no
+output. To use its commands, send the output to a file and open that:
+
+```
+.\TravelReady.exe doctor > doctor.txt
+```
+
+Most people never need this: **Diagnostics** does the same in the window.
+
+### Known issues in 0.4.0
+
+- **Text can look small on a scaled display**, for example at 150% scaling.
+- **Not yet tested on an ROG Ally.** This release has been tested on a Windows
+  11 desktop and on GitHub's Windows build machines. Touch use, launching real
+  Xbox and EA games, and applying settings on the device are still to be
+  confirmed. See [docs/HARDWARE_VALIDATION.md](docs/HARDWARE_VALIDATION.md).
+
+## Command line (from source)
+
+The command line needs Python 3.11 or later:
+
+```
+git clone https://github.com/ShahzadaYT/GameReady-Windows
+cd GameReady-Windows
+python run.py              # GUI
+python run.py --help       # CLI
+```
+
+```
+python run.py scan                 # find installed games
+python run.py ready                # what is ready to travel, and why not
+python run.py prepare              # prepare everything that is not
+python run.py prepare --resume     # continue an interrupted run
+python run.py doctor               # diagnose anything that is not working
+```
+
+After `pip install -e .`, the same commands are available as `travelready ...`,
+which the examples below use.
+
+`travelready ready "Cyberpunk 2077"` shows every check for one game:
+
+```
+CYBERPUNK 2077
+
+READY WITH WARNINGS
+
+✓ Installed
+✓ GOG available
+✓ Launch target discovered
+✓ Launch can be verified — known process name
+✓ Launcher sign-in — GOG games are DRM-free, no sign-in is needed offline
+✓ Launched successfully while online
+✓ Offline play supported
+⚠ ROG Ally Life profile — no recommendation published for this game
+
+What to do:
+  1. Run 'travelready settings update' while you are online.
+```
+
+Settings and launch readiness are **separate**: a game with no published
+profile is still ready to travel.
+
+Settings:
+
+```
+travelready settings show    "Cyberpunk 2077"   # read-only comparison
+travelready settings dry-run "Cyberpunk 2077"   # the exact diff a write would make
+travelready settings apply   "Cyberpunk 2077"   # asks before changing anything
+travelready settings restore "Cyberpunk 2077"   # put the backup back
+```
+
+## Launchers are not all the same
+
+Each launcher is treated according to how it actually behaves.
+
+| Launcher | Launch route | How a start is verified |
+|---|---|---|
+| Steam | `steam://rungameid/<id>` | process name from the app manifest |
+| Epic | `com.epicgames.launcher://apps/<id>` | executable from the Epic manifest |
+| EA | `link2ea://launch/<id>` | process name and install folder resolved from the EA registry |
+| Ubisoft / GOG / Battle.net | installed executable | process name, install folder |
+| **Xbox / Game Pass** | `shell:AppsFolder\<AppUserModelID>` | process name from the package manifest or `C:\XboxGames`, else honest manual confirmation |
+
+Settings and launch readiness are **separate**: a game with no published
+profile is still ready to travel. `travelready report --settings` shows both
+columns side by side.
+
+**Xbox games are launched automatically.** Launch and verification are separate
+capabilities: a game can be started for you while being honestly reported as
+manually verified, rather than refusing to start it at all.
+
+## Game settings
+
+ROG Ally Life (<https://rogallylife.com/>) is the **primary** source of
+recommended per-game settings. TravelReady syncs them into a local cache,
+matches them to your installed games, and independently decides what it is
+allowed to change.
+
+> ROG Ally Life is a community source. It is **not** ASUS, and TravelReady
+> never presents it as official ASUS guidance.
+
+```
+travelready settings update                        # sync the local cache
+travelready settings coverage --detail             # what is covered, what is not
+travelready settings search "Clair Obscur"         # find it in the cache
+travelready settings source "Clair Obscur: Expedition 33"   # raw record + attribution
+travelready settings show   "Clair Obscur: Expedition 33" --mode battery
+```
+
+The cache works offline, which is the point — sync before you travel and the
+recommendations come with you.
+
+### Performance profiles
+
+A game usually has several, and the highest-power one is rarely what you want
+on a plane. Pick the mode and TravelReady picks the profile, showing its
+reasoning and what else was published:
+
+| Mode | Prefers |
+|---|---|
+| `--mode battery` | the lowest published wattage |
+| `--mode balanced` | around 18W, the site's balance point |
+| `--mode performance` | the highest published wattage |
+| `--max-watts 18` | never above that wattage |
+
+If the source publishes nothing suitable, TravelReady says so rather than
+inventing a profile between two real ones.
+
+### Attribution
+
+Every recommendation keeps its source, URL, retrieval time, the source's own
+last-updated date and the parser version, and the GUI's **View source** button
+opens the exact page a number came from.
+
+You can still keep your own profiles, and a locally imported one always wins
+over the synced data:
+
+```
+travelready profile-template "Cyberpunk 2077" > cyberpunk.json
+travelready profile-import cyberpunk.json
+```
+
+### What gets changed
+
+Every proposed change is classified `SAFE`, `CAUTION`, `MANUAL`,
+`RESEARCH_REQUIRED` or `BLOCKED`. No percentages, no "probably safe". Only
+`SAFE` can be applied, only after you approve it, and only after a verified
+backup. Device-wide settings — TDP, fan profile, VRAM, Armoury Crate, Adrenalin,
+Windows power plans — are `MANUAL`: shown, never changed.
+
+Your config files keep their comments, ordering, duplicate keys, unknown keys,
+encoding and line endings, byte for byte. Only the value you approved changes.
+
+## Safety
+
+TravelReady does **not** bypass DRM, launcher authentication or anti-cheat. It
+uses the normal launch paths and watches for the game's process.
+
+It never modifies, disables, stops, patches, renames, deletes, injects into or
+hooks anti-cheat, DRM, anti-tamper, executables, DLLs, drivers, services,
+protected processes, firmware or Windows security — and it is built so that
+targeting those is difficult rather than merely discouraged. There is no
+"force apply".
+
+Full detail: **[docs/SAFETY.md](docs/SAFETY.md)**.
+
+## Documentation
+
+| | |
+|---|---|
+| [docs/SAFETY.md](docs/SAFETY.md) | What TravelReady will and will not touch, and how that is enforced |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Module layout and the read-only / write split |
+| [docs/ENGINEERING_ASSESSMENT.md](docs/ENGINEERING_ASSESSMENT.md) | Audit of the previous builds and the root causes of the Xbox and EA regressions |
+| [docs/ROGALLYLIFE.md](docs/ROGALLYLIFE.md) | How the source is structured, retrieved, matched, cached and mapped |
+| [docs/AUDIT.md](docs/AUDIT.md) | The pre-hardware audit: what was dead, duplicated, fragile or missing |
+| [docs/HARDWARE_VALIDATION.md](docs/HARDWARE_VALIDATION.md) | What is code-verified vs. what still needs the device |
+
+## Development
+
+```
+pip install -e ".[dev]"
+python -m pytest              # the full suite (hardware tests deselected)
+pytest -m hardware            # the cases that need a real device
+```
+
+Building the Windows executable:
+
+```
+pip install pyinstaller
+pyinstaller travelready.spec  # -> dist/TravelReady.exe
+```
+
+---
+
+**Version** 0.4.0 · **Platform** Windows · **Target** ASUS ROG Ally X · **Licence** [MIT](LICENSE)
