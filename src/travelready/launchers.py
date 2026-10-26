@@ -249,9 +249,16 @@ class XboxAdapter(LauncherAdapter):
         )
 
     def _detect_installed(self) -> Optional[bool]:
-        from .discovery import get_start_apps
+        from .discovery import start_apps_probe
 
-        return bool(get_start_apps())
+        apps = start_apps_probe()
+        # A probe that timed out or failed is "cannot determine", not "not
+        # installed". The None is cached like any answer: a failure can cost
+        # the full 60 s timeout, and repeating it per game is the slowness
+        # the cache exists to prevent. A scan or refresh=True asks again.
+        if apps is None:
+            return None
+        return bool(apps)
 
     def prepare_for_offline(self, entry: GameEntry) -> Optional[str]:
         return ("Launch the game once while online so Xbox refreshes its licence. "

@@ -1,6 +1,8 @@
 """Discovery filtering, parsing and merging tests (no Windows required)."""
 from __future__ import annotations
 
+import sys
+
 import pytest
 
 from conftest import FIXTURES
@@ -32,6 +34,52 @@ def test_parse_vdf_library_paths():
     paths = d.parse_vdf_paths('"libraryfolders"{"0"{"path" "C:\\\\Program Files '
                               '(x86)\\\\Steam"}"1"{"path" "D:\\\\SteamLibrary"}}')
     assert paths == ["C:\\Program Files (x86)\\Steam", "D:\\SteamLibrary"]
+
+
+# -- probes that can fail -----------------------------------------------------
+#
+# Real commands through this interpreter, so these run on any host without
+# replacing subprocess for the whole process.
+
+def test_a_command_that_ran_and_printed_nothing_is_empty_not_none():
+    assert d._run_checked([sys.executable, "-c", "pass"]) == ""
+    assert d._run_checked([sys.executable, "-c", "print('a|b')"]).strip() == "a|b"
+
+
+@pytest.mark.parametrize("cmd, timeout", [
+    ([sys.executable, "-c", "raise SystemExit(3)"], 30),         # failed
+    (["travelready-no-such-command-x7"], 30),                   # could not start
+    ([sys.executable, "-c", "import time; time.sleep(30)"], 1),  # timed out
+])
+def test_a_command_that_did_not_answer_is_none(cmd, timeout):
+    assert d._run_checked(cmd, timeout=timeout) is None
+
+
+def test_start_apps_probe_keeps_cannot_determine_apart_from_empty(monkeypatch):
+    monkeypatch.setattr(d, "IS_WINDOWS", True)
+    answers = {"failed": None, "empty": "",
+               "apps": "Xbox|Microsoft.GamingApp_8wekyb3d8bbwe!Microsoft.Xbox.App\n"}
+    for name, output in answers.items():
+        monkeypatch.setattr(d, "_run_checked", lambda cmd, timeout=0, o=output: o)
+        probe = d.start_apps_probe()
+        if name == "failed":
+            assert probe is None
+        elif name == "empty":
+            assert probe == []
+        else:
+            assert probe == [("Xbox", "Microsoft.GamingApp_8wekyb3d8bbwe!Microsoft.Xbox.App")]
+
+
+def test_start_apps_probe_off_windows_cannot_determine(monkeypatch):
+    monkeypatch.setattr(d, "IS_WINDOWS", False)
+    assert d.start_apps_probe() is None
+
+
+def test_get_start_apps_is_unchanged_for_discovery(monkeypatch):
+    """Scanning still treats a failed probe as no apps; only presence differs."""
+    monkeypatch.setattr(d, "IS_WINDOWS", True)
+    monkeypatch.setattr(d, "_run", lambda cmd, timeout=0: "")
+    assert d.get_start_apps() == []
 
 
 # -- blacklists --------------------------------------------------------------

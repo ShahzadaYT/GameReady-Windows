@@ -193,6 +193,31 @@ def _powershell(script: str, timeout: int = 60) -> str:
     return _run([exe, "-NoProfile", "-NonInteractive", "-Command", script], timeout)
 
 
+def _run_checked(cmd: Sequence[str], timeout: int = _SUBPROCESS_TIMEOUT) -> Optional[str]:
+    """Like :func:`_run`, but ``None`` when the command did not answer.
+
+    ``_run`` returns ``""`` both for a command that ran and printed nothing and
+    for one that could not start, timed out or failed. Where that difference
+    is the answer, "cannot determine" must not read as "nothing there".
+    """
+    try:
+        proc = subprocess.run(list(cmd), capture_output=True, text=True,
+                              timeout=timeout, creationflags=_NO_WINDOW)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    return proc.stdout or ""
+
+
+def _powershell_checked(script: str, timeout: int = 60) -> Optional[str]:
+    if not IS_WINDOWS:
+        return None
+    exe = os.environ.get("TRAVELREADY_POWERSHELL") or "powershell"
+    return _run_checked([exe, "-NoProfile", "-NonInteractive", "-Command", script],
+                        timeout)
+
+
 def _read_registry_value(root, subkey: str, name: str) -> str:
     if not IS_WINDOWS:
         return ""
@@ -309,17 +334,31 @@ XBOX_DIR_REASON = (
 )
 
 
+_START_APPS_SCRIPT = (
+    "Get-StartApps | ForEach-Object { Write-Output ($_.Name + '|' + $_.AppID) }"
+)
+
+
 def get_start_apps() -> List[Tuple[str, str]]:
     """``(name, AppUserModelID)`` pairs from Windows application registration.
 
     These AppIDs are the OFFICIAL launch targets usable via
-    ``shell:AppsFolder\\<AppID>``. Read-only.
+    ``shell:AppsFolder\\<AppID>``. Read-only. Empty also when PowerShell could
+    not answer; :func:`start_apps_probe` keeps that difference.
     """
-    out = _powershell(
-        "Get-StartApps | ForEach-Object { Write-Output ($_.Name + '|' + $_.AppID) }",
-        timeout=60,
-    )
+    out = _powershell(_START_APPS_SCRIPT, timeout=60)
     return parse_start_apps(out)
+
+
+def start_apps_probe() -> Optional[List[Tuple[str, str]]]:
+    """:func:`get_start_apps`, or ``None`` when PowerShell did not answer.
+
+    For questions where an empty list is itself the answer, such as whether
+    the Xbox app is installed: a timeout or a failed PowerShell is "cannot
+    determine", never "not installed".
+    """
+    out = _powershell_checked(_START_APPS_SCRIPT, timeout=60)
+    return None if out is None else parse_start_apps(out)
 
 
 def parse_start_apps(output: str) -> List[Tuple[str, str]]:
