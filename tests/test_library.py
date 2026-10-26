@@ -249,3 +249,40 @@ def test_an_empty_scan_does_not_delete_games_the_scan_missed():
                L.GameEntry(name="An EA Game", launcher="ea")]
     merged, added, updated = L.merge_library_updates(entries, [])
     assert {e.name for e in merged} == {"A Steam Game", "An EA Game"}
+
+
+# -- the user's game / not-a-game decision ------------------------------------
+#
+# Classification needs positive evidence that something is a game; the user
+# can mark an entry either way. Losing that mark on a save or a re-scan would
+# quietly undo their decision, so it is pinned here.
+
+def test_a_category_override_survives_save_and_load(tmp_path):
+    path = tmp_path / "games.json"
+    L.save_library([L.GameEntry(name="Play Dispatch", launcher="other",
+                                category_override="game")], path)
+    entries, _ = L.load_library(path)
+    assert entries[0].category_override == "game"
+
+
+def test_a_rescan_never_clears_a_category_override():
+    stored = [L.GameEntry(name="Play Dispatch", launcher="other",
+                          exe_path=r"D:\Dispatch\Dispatch.exe",
+                          category_override="game")]
+    found = [L.GameEntry(name="Play Dispatch", launcher="other",
+                         exe_path=r"D:\Dispatch\Dispatch.exe")]
+    merged, _, _ = L.merge_library_updates(stored, found)
+    assert [e.category_override for e in merged] == ["game"]
+
+
+def test_folding_a_duplicate_keeps_its_category_override():
+    keep = L.GameEntry(name="Netflix", launcher="xbox")
+    other = L.GameEntry(name="Netflix", launcher="xbox", category_override="not_game")
+    merged, _, _ = L.merge_library_updates([keep, other], [])
+    assert [e.category_override for e in merged] == ["not_game"]
+
+
+def test_a_library_without_the_field_loads_with_no_override(tmp_path):
+    """Libraries written before the field existed load unchanged."""
+    entries, _ = L.load_library(FIXTURES / "games_2026-09-26.json")
+    assert all(e.category_override == "" for e in entries)

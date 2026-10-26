@@ -305,6 +305,20 @@ def test_the_real_library_loads_into_the_model():
     entries, _ = _load_fixture()
     state = AppState(environment=offline_environment())
     state.set_entries(entries)
-    assert len(state.identities) > 100
+    # Over 100 games used to be reported here, about 30 of them Command
+    # Prompt, PowerShell, Task Manager and other Windows tools counted only
+    # because no rule excluded them. Games now need positive evidence.
+    assert 85 <= len(state.identities) < 100
     assert state.non_games, "launcher software must still be separated out"
     assert state.summary()
+
+
+def test_a_scan_looks_for_game_files_again(state, monkeypatch):
+    """A game installed since the last scan must be recognised by the next."""
+    from travelready import classification
+
+    calls = []
+    monkeypatch.setattr(classification, "clear_evidence_cache",
+                        lambda: calls.append(1))
+    state.scan_completed([entry("Hades")], ScanResult(found=1))
+    assert calls == [1]

@@ -174,6 +174,8 @@ class TravelReadyGUI:
             stale_days=self.settings.stale_days)
         self.state.bus.subscribe(appstate.LIBRARY_CHANGED,
                                  lambda payload: self._refresh())
+        self.state.bus.subscribe(appstate.LIBRARY_CHANGED,
+                                 lambda payload: self._refresh_not_counted())
         self.state.bus.subscribe(appstate.READINESS_CHANGED,
                                  lambda payload: self._update_dashboard())
 
@@ -393,6 +395,10 @@ class TravelReadyGUI:
         self.diag_text = tk.Text(diag, wrap="word", font=MONO_FONT, height=12,
                                  relief="flat", background="#1e1e1e", foreground="#e6e6e6")
         self.diag_text.pack(fill="both", expand=True)
+
+        uncounted = ttk.Frame(right, padding=8)
+        right.add(uncounted, text="Not counted")
+        self._build_not_counted_panel(uncounted)
 
         status = ttk.Frame(self.root, padding=(12, 6))
         status.pack(fill="x")
@@ -928,11 +934,80 @@ class TravelReadyGUI:
             self._log(f"An interrupted preparation run is saved: "
                       f"{saved.completed} of {saved.total} done. Press Resume.")
 
+    # -- not counted as games ------------------------------------------------
+
+    def _build_not_counted_panel(self, parent: ttk.Frame) -> None:
+        """Everything found that is not counted as a game, with the reason.
+
+        A game needs positive evidence to be counted, so a real game without
+        any can land here. Marking it counts it from then on: a re-scan never
+        clears the mark.
+        """
+        ttk.Label(parent, font=SUB_FONT, justify="left", wraplength=self.px(440),
+                  text="Found on this PC but not counted as games, so TravelReady "
+                       "never tests or starts them. If one is a game, select it "
+                       "and press Count as a game.").pack(anchor="w")
+        bar = ttk.Frame(parent)
+        bar.pack(fill="x", pady=self.px(6))
+        ttk.Button(bar, text="Count as a game",
+                   command=self._on_count_as_game).pack(side="left")
+        ttk.Button(bar, text="Don't count the selected game",
+                   command=self._on_dont_count_selected).pack(side="left", padx=4)
+        self.uncounted_tree = ttk.Treeview(parent, columns=("reason",),
+                                           show="tree headings", selectmode="extended")
+        self.uncounted_tree.heading("#0", text="Name")
+        self.uncounted_tree.heading("reason", text="Why it is not counted")
+        self.uncounted_tree.column("#0", width=self.px(220), minwidth=self.px(140))
+        self.uncounted_tree.column("reason", width=self.px(420), anchor="w")
+        self.uncounted_tree.pack(fill="both", expand=True)
+        #: row id -> the library entry it shows.
+        self.iid_to_uncounted: Dict[str, GameEntry] = {}
+
+    def _refresh_not_counted(self) -> None:
+        self.uncounted_tree.delete(*self.uncounted_tree.get_children())
+        self.iid_to_uncounted.clear()
+        for entry in sorted(self.state.non_games, key=lambda e: e.name.lower()):
+            reason = classification.classify_entry(entry).reason
+            iid = self.uncounted_tree.insert("", "end", text=entry.name,
+                                             values=(reason,))
+            self.iid_to_uncounted[iid] = entry
+
+    def _set_category_override(self, entries: Sequence[GameEntry], value: str,
+                               done: str) -> None:
+        for entry in entries:
+            entry.category_override = value
+        self.entries = list(self.entries)        # rebuilds games and non-games
+        self._save_library()
+        names = ", ".join(sorted({e.name for e in entries}))
+        self._log(f"{done}: {names}")
+        self._set_status(f"{done}: {names}")
+
+    def _on_count_as_game(self) -> None:
+        entries = [self.iid_to_uncounted[iid] for iid in self.uncounted_tree.selection()
+                   if iid in self.iid_to_uncounted]
+        if not entries:
+            messagebox.showinfo("Nothing selected",
+                                "Select one or more entries in the Not counted list first.")
+            return
+        self._set_category_override(entries, classification.OVERRIDE_GAME,
+                                    "Now counted as a game")
+
+    def _on_dont_count_selected(self) -> None:
+        entries = [installation.entry for identity in self._selected_identities()
+                   for installation in identity.installations]
+        if not entries:
+            messagebox.showinfo("Nothing selected",
+                                "Select one or more games in the game list first.")
+            return
+        self._set_category_override(entries, classification.OVERRIDE_NOT_GAME,
+                                    "No longer counted as a game")
+
     def _report_non_games(self) -> None:
         non_games = self.state.non_games
         if non_games:
-            self._log(f"{len(non_games)} entries are not games (launchers, Windows "
-                      f"apps, utilities) and are excluded from every count.")
+            self._log(f"{len(non_games)} entries are not counted as games (launchers, "
+                      f"Windows tools, other software, or nothing showed they are "
+                      f"games). The Not counted tab lists them, and can count one.")
 
     def _report_for(self, identity) -> preparation.PreparationReport:
         """Readiness for one game, computed once and cached by the model."""
