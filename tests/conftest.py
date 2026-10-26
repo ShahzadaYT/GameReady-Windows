@@ -19,7 +19,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 # is not a true account of the run, so an unexercised GUI is reported loudly,
 # with the command that fixes it.
 
-_GUI_MODULES = ("test_gui.py", "test_gui_regressions.py")
+_GUI_MODULES = ("test_gui.py", "test_gui_regressions.py", "test_gui_scaling.py")
 
 
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
