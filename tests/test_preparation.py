@@ -1,9 +1,12 @@
 """Preparation state machine, launcher adapters and game identity tests."""
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from conftest import FIXTURES
+from helpers import executables_exist
 from travelready import preparation as prep
 from travelready.classification import split_games
 from travelready.environment import offline_environment
@@ -84,6 +87,81 @@ def test_capability_matrix_renders():
     text = capability_matrix()
     assert "Steam" in text and "Battle.net" in text
     assert FULL in text and PARTIAL in text
+
+
+# -- launcher presence is detected per launcher, not per game ----------------
+
+@pytest.fixture
+def xbox_detections(monkeypatch):
+    """Count Xbox presence detections on a simulated Windows host."""
+    from dataclasses import replace
+
+    from travelready import environment, launchers
+    from travelready.environment import Capability
+
+    windows = replace(offline_environment(), windows=Capability("windows", True))
+    monkeypatch.setattr(environment, "current", lambda **kw: windows)
+    adapter = launchers.ADAPTERS["xbox"]
+    calls = []
+    monkeypatch.setattr(adapter, "_presence", None)
+    monkeypatch.setattr(adapter, "_detect_installed",
+                        lambda: calls.append(1) or True)
+    clock = [1000.0]
+    monkeypatch.setattr(launchers, "_clock", lambda: clock[0])
+    return adapter, calls, clock, windows
+
+
+_PROCESS_CLOCK = time.monotonic
+
+
+def test_the_presence_clock_is_not_the_process_clock(xbox_detections):
+    """Freezing time.monotonic would also stall threading and test timeouts."""
+    from travelready import launchers
+
+    assert time.monotonic is _PROCESS_CLOCK
+    assert launchers._clock is not _PROCESS_CLOCK
+
+
+def test_readiness_detects_each_launcher_once_not_once_per_game(xbox_detections):
+    """It ran Get-StartApps for every Xbox game: ~16s to open the window."""
+    adapter, calls, _, windows = xbox_detections
+    games = [_entry(name=f"Xbox Game {i}", launcher="xbox",
+                    expected_process=f"game{i}.exe", exe_path="", install_dir="",
+                    launch_method="shell", launch_target=f"shell:AppsFolder\\Pub.G{i}!App")
+             for i in range(20)]
+    for identity in build_identities(games):
+        assert prep.assess(identity, env=windows).check("launcher").outcome == prep.PASS
+    assert len(calls) == 1
+
+
+def test_launcher_presence_is_detected_again_once_stale(xbox_detections):
+    from travelready.launchers import PRESENCE_TTL
+
+    adapter, calls, clock, _ = xbox_detections
+    adapter.launcher_installed()
+    clock[0] += PRESENCE_TTL - 1
+    adapter.launcher_installed()
+    assert len(calls) == 1
+    clock[0] += 2
+    adapter.launcher_installed()
+    assert len(calls) == 2
+
+
+def test_refresh_always_detects(xbox_detections):
+    adapter, calls, _, _ = xbox_detections
+    adapter.launcher_installed()
+    assert adapter.launcher_installed(refresh=True) is True
+    assert len(calls) == 2
+
+
+def test_launcher_presence_off_windows_is_unknown_without_detecting(xbox_detections,
+                                                                     monkeypatch):
+    from travelready import environment
+
+    adapter, calls, _, _ = xbox_detections
+    monkeypatch.setattr(environment, "current", lambda **kw: offline_environment())
+    assert adapter.launcher_installed() is None
+    assert calls == []
 
 
 # -- identity ----------------------------------------------------------------
@@ -226,9 +304,10 @@ def test_settings_unknown_when_the_cache_was_never_synced():
     assert "settings update" in check.fix
 
 
-def test_settings_check_never_blocks_readiness():
+def test_settings_check_never_blocks_readiness(monkeypatch):
     from datetime import datetime, timezone
 
+    executables_exist(monkeypatch, r"C:\Games\Test\test.exe")
     entry = _entry(last_result="PASS",
                    last_ready=datetime.now(timezone.utc).isoformat())
     report = prep.assess(_identity(entry), env=offline_environment())

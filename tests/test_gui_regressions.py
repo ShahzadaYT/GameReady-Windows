@@ -9,6 +9,7 @@ from __future__ import annotations
 import shutil
 import time
 import threading
+from types import SimpleNamespace
 
 import pytest
 
@@ -332,11 +333,18 @@ def test_ctrl_a_does_not_hijack_typing_in_the_search_box(app):
                 entry = widget
                 break
     assert entry is not None
-    entry.focus_set()
-    app.root.update()
-    result = app._on_ctrl_a()
+    # Pass the key event rather than relying on focus_set(): Windows grants no
+    # keyboard focus to a window that is not in the foreground, as on CI.
+    result = app._on_ctrl_a(SimpleNamespace(widget=entry))
     assert result is None, "the entry must keep Ctrl+A"
     assert app.state.selection_count == 0
+
+
+def test_ctrl_a_in_the_game_list_selects_every_visible_game(app):
+    app._on_select_none()
+    result = app._on_ctrl_a(SimpleNamespace(widget=app.tree))
+    assert result == "break"
+    assert app.state.selection_count == len(app.tree.get_children())
 
 
 # -- search, filter, empty states -------------------------------------------
@@ -654,11 +662,17 @@ def test_copying_diagnostics_puts_them_on_the_clipboard(app):
     assert "a log line" in app.root.clipboard_get()
 
 
+# An account no test host will have. The diagnostics header also carries the
+# real data folder, and pytest names its temp folder after the real account
+# (pytest-of-<account>), so asserting on a real name fails on that machine.
+ACCOUNT = "ExampleAccount7"
+
+
 def test_diagnostics_do_not_name_the_windows_account(app):
-    r"""Paths identify a person: C:\Users\SHAHZ\... must not be shared."""
-    app._log(r"Read C:\Users\SHAHZ\AppData\Local\TravelReady\games.json")
+    r"""Paths identify a person: C:\Users\<account>\... must not be shared."""
+    app._log(rf"Read C:\Users\{ACCOUNT}\AppData\Local\TravelReady\games.json")
     text = app.diagnostics_text()
-    assert "SHAHZ" not in text
+    assert ACCOUNT not in text
     assert "%USERNAME%" in text
     assert "AppData" in text, "the path must stay useful"
 
@@ -675,12 +689,12 @@ def test_saving_diagnostics_writes_the_redacted_text(app, tmp_path, monkeypatch)
     import travelready.gui_app as gui_app
 
     target = tmp_path / "diag.txt"
-    app._log(r"path C:\Users\SHAHZ\thing.json")
+    app._log(rf"path C:\Users\{ACCOUNT}\thing.json")
     monkeypatch.setattr(gui_app.filedialog, "asksaveasfilename",
                         lambda **kw: str(target))
     app._on_save_log()
     written = target.read_text(encoding="utf-8")
-    assert "SHAHZ" not in written
+    assert ACCOUNT not in written
     assert "%USERNAME%" in written
 
 

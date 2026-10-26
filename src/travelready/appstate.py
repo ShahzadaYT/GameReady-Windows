@@ -32,7 +32,7 @@ import threading
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
-from . import classification, identity as identity_mod, preparation, readiness
+from . import classification, identity as identity_mod, launchers, preparation, readiness
 from .environment import Environment
 from .identity import GameIdentity
 from .library import GameEntry
@@ -210,7 +210,12 @@ class AppState:
 
         Exists so a caller cannot merge the entries and forget the event, which
         is the shape the stale-list bug took.
+
+        Cached launcher presence is dropped first: a launcher installed just
+        before the scan must not stay "not installed" in the verdicts the scan
+        recomputes. Each launcher is detected once more, not once per game.
         """
+        launchers.forget_presence()
         self.set_entries(entries, event=SCAN_COMPLETED, payload=result)
 
     # -- derived ----------------------------------------------------------
